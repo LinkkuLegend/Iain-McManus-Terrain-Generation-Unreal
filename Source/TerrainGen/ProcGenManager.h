@@ -4,9 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "DA_ProcGenConfig.h"
-#include "Components/DynamicMeshComponent.h"
+
+
+#include "Engine/Texture2D.h"
+#include "Math/NumericLimits.h"
+
 #include "UtilsDataStructs.h"
+#include "DA_ProcGenConfig.h"
+#include "DA_BiomeConfig.h"
+#include <TerrainGen/UtilsArray.h>
+
 #include "ProcGenManager.generated.h"
 
 
@@ -20,47 +27,74 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	virtual void PostActorCreated() override;
+
+	virtual void PostLoad() override;
+
+	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
+	TArray<FVector> Vertices;
+
+	UPROPERTY(EditAnywhere)
+	TArray<int> Triangles;
+
 
 private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GenConfig", meta = (AllowPrivateAccess = "true"))
 		UDA_ProcGenConfig* Config;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
-		class UDynamicMeshComponent* TargetTerrain;
+	//UPROPERTY(EditAnywhere, Category = "Terrain")
+		class UProceduralMeshComponent* TargetTerrain;
 
 	UFUNCTION(BlueprintCallable)
 		void RegenerateTerrain();
 
-	void PerformBiomeGeneration(short mapResolution);
+	void PerformBiomeGeneration_LowRes(uint16 mapResolution);
 
-	void PerformSpawnIndividualBiome(short BiomeIndex, short HeightmapResolution);
+	void PerformBiomeGeneration_HighRes(uint16 lowResMapResolution, uint32 targetResolution);
+
+	void Perform_HeightMapModification(uint32 targetResolution);
+
+	void PerformSpawnIndividualBiome(short BiomeIndex, uint16 HeightmapResolution);
 
 	void InitializeNeighbourOffsets();
 
-	bool IsTextureSafeToReadFrom(UTexture* Texture);
+	bool IsTextureSafeToReadFrom(UTexture2D* Texture);
+
+	void DebugBiomeToTexture(UTexture2D*& texture, MArray<uint8> pixels, uint16 resolution, uint8 NumBiomes, FString filename);
+
+	uint8 CalculateHighResBiomeIndex(uint16 lowResMapSize, uint32 lowResX, uint32 lowResY, uint32 HighResX, uint32 HighResY);
+
+	// Terrain Generation
+	void GenerateTile();
 
 #pragma region "Mapgen Variables"
 
-	MArray <short> BiomeMap;
+	MArray <uint8> BiomeMap_LowRes;
+	MArray <float> BiomeStrengths_LowRes;
+
+	MArray <uint8> BiomeMap;
 	MArray <float> BiomeStrengths;
 
 	TArray<FInt32Vector2> NeighbourOffsets;
 
+	//Debug purposes
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
-		UTexture2D* BiomeMapTexture;
+		UTexture2D* BiomeMapTextureLowRes;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* BiomeMapTextureHighRes;
 
 #pragma endregion
 
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-		void BiomeImageToDisk();
-
-
-	
-
+		void BiomeImageToDisk(UTexture2D* texture, const FString& filename);
 
 };
