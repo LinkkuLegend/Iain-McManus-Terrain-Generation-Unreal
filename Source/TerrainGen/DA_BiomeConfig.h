@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+//#include "DA_BaseHeightMapModifier.h"
 #include "DA_BiomeConfig.generated.h"
 
 /**
@@ -29,5 +30,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 		float MaxDecayRate = 0.02f;
+
+	//UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		//UDA_BaseHeightMapModifier* HeightModifier;
 
 };

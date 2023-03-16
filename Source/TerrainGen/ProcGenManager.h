@@ -33,10 +33,6 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	virtual void PostActorCreated() override;
-
-	virtual void PostLoad() override;
-
 	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
 	TArray<FVector> Vertices;
 
@@ -49,8 +45,8 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GenConfig", meta = (AllowPrivateAccess = "true"))
 		UDA_ProcGenConfig* Config;
 
-	//UPROPERTY(EditAnywhere, Category = "Terrain")
-		class UProceduralMeshComponent* TargetTerrain;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
+		class ATerrain* TargetTerrain;
 
 	UFUNCTION(BlueprintCallable)
 		void RegenerateTerrain();
@@ -74,6 +70,9 @@ private:
 	// Terrain Generation
 	void GenerateTile();
 
+
+
+
 #pragma region "Mapgen Variables"
 
 	MArray <uint8> BiomeMap_LowRes;
@@ -96,5 +95,7 @@ private:
 public:
 	UFUNCTION(BlueprintImplementableEvent)
 		void BiomeImageToDisk(UTexture2D* texture, const FString& filename);
+
+	
 
 };

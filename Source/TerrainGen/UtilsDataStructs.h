@@ -97,7 +97,7 @@ public:
 		TArray< FStringFormatArg > args;
 		for(size_t y = 0; y < Rows; y++) {
 			for(size_t x = 0; x < Columns; x++) {
-				JoinedStr += FString::FromInt(getItem(x, y));
+				JoinedStr += getItem(x, y);
 				JoinedStr += ' ';
 			}
 			UE_LOG(LogTemp, Warning, TEXT("%s "), *JoinedStr);

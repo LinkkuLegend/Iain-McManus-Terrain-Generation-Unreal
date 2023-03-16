@@ -16,6 +16,18 @@ public:
         }
     }
 
+    static FString AddWhiteSpacesAtStart(int32 NumberOfSpaces, FString string) {
+        FString Result;
+        for(size_t i = 0; i < NumberOfSpaces; i++) {
+            Result.Append(" ");
+        }
+        Result.Append(string);
+
+
+        return Result;
+    }
+
+
 };
 
 

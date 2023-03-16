@@ -5,6 +5,8 @@
 
 #include "ProcGenManager.h"
 #include "ProceduralMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Terrain.h"
 
 
 // Sets default values
@@ -12,11 +14,11 @@ AProcGenManager::AProcGenManager() {
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	//CreateDefaultSubobject<UDynamicMesh>(TEXT("Terrain"));
-	TargetTerrain = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("GeneratedMesh"));
-	RootComponent = TargetTerrain;
+	//TargetTerrain = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("GeneratedMesh"));
+	//RootComponent = TargetTerrain;
 	//TargetTerrain->SetCollisionProfileName("BlockAll");
 	//SetRootComponent(TargetTerrain);
-	TargetTerrain->bUseAsyncCooking = true;
+	//TargetTerrain->bUseAsyncCooking = true;
 
 	InitializeNeighbourOffsets();
 }
@@ -24,13 +26,15 @@ AProcGenManager::AProcGenManager() {
 // Called when the game starts or when spawned
 void AProcGenManager::BeginPlay() {
 	Super::BeginPlay();
-	GenerateTile();
+	//GenerateTile();
+
 }
 
 // Called every frame
 void AProcGenManager::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
+	TargetTerrain->UpdateTerrain(GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
 }
 
 void AProcGenManager::InitializeNeighbourOffsets() {
@@ -365,19 +369,19 @@ void AProcGenManager::PerformBiomeGeneration_HighRes(uint16 lowResMapResolution,
 
 void AProcGenManager::Perform_HeightMapModification(uint32 targetResolution) {
 	//TargetTerrain.
+
+	//if(Config->InitialHeightModifier) {
+
+	//}
+	//UBaseHeightMapModifierComponent* MapModifierComp = Cast<UBaseHeightMapModifierComponent>(GetComponentByClass(UBaseHeightMapModifierComponent::StaticClass()));
+	if(Config != NULL && !Config->InitialHeightModifier.IsEmpty()) {
+		for(size_t x = 0; x < Config->InitialHeightModifier.Num(); x++) {
+			Config->InitialHeightModifier[x]->Execute();
+		}
+	}
+
 }
 
-// This is called when actor is spawned (at runtime or when you drop it into the world in editor)
-void AProcGenManager::PostActorCreated() {
-	Super::PostActorCreated();
-	//GenerateTile();
-}
-
-// This is called when actor is already in level and map is opened
-void AProcGenManager::PostLoad() {
-	Super::PostLoad();
-	//GenerateTile();
-}
 /*
 * Code from: https://www.bluefruitgames.com/creating-a-procedural-mesh-in-unreal-engine/
 */
@@ -421,7 +425,7 @@ void AProcGenManager::GenerateTile() {
 	UE_LOG(LogTemp, Warning, TEXT("Sections: %d"), TargetTerrain->GetNumSections());*/
 
 	//TargetTerrain->CreateMeshSection_LinearColor
-	TargetTerrain->CreateMeshSection_LinearColor(0, Vertices, Triangles, TArray<FVector>(), TArray<FVector2D>(), TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
+	//TargetTerrain->CreateMeshSection_LinearColor(0, Vertices, Triangles, TArray<FVector>(), TArray<FVector2D>(), TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
 
 	//TargetTerrain->CreateMeshSection_LinearColor(0, vertices, Triangles, normals, UV0, vertexColors, tangents, true);
 
@@ -430,6 +434,8 @@ void AProcGenManager::GenerateTile() {
 	//TargetTerrain->ContainsPhysicsTriMeshData(true);
 
 }
+
+
 
 
 
