@@ -13,11 +13,12 @@
 AProcGenManager::AProcGenManager() {
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	//RootComponent->Mobility = EComponentMobility::Static;
 	//CreateDefaultSubobject<UDynamicMesh>(TEXT("Terrain"));
-	//TargetTerrain = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("GeneratedMesh"));
+	TestTerrain = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("GeneratedMesh"));
 	//RootComponent = TargetTerrain;
 	//TargetTerrain->SetCollisionProfileName("BlockAll");
-	//SetRootComponent(TargetTerrain);
+	SetRootComponent(TestTerrain);
 	//TargetTerrain->bUseAsyncCooking = true;
 
 	InitializeNeighbourOffsets();
@@ -34,7 +35,7 @@ void AProcGenManager::BeginPlay() {
 void AProcGenManager::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	TargetTerrain->UpdateTerrain(GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
+	//TargetTerrain->UpdateTerrain(GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
 }
 
 void AProcGenManager::InitializeNeighbourOffsets() {
@@ -58,7 +59,7 @@ bool AProcGenManager::IsTextureSafeToReadFrom(UTexture2D* Texture) {
 void AProcGenManager::RegenerateTerrain() {
 	UE_LOG(LogTemp, Warning, TEXT("Regenerating world..."));
 
-	uint32 targetResolution{ 1027 };
+	uint32 targetResolution{ 257 };
 
 	// Generate the low resolution biome map
 	PerformBiomeGeneration_LowRes(Config->GetBiomeMapResolution());
@@ -67,7 +68,7 @@ void AProcGenManager::RegenerateTerrain() {
 	PerformBiomeGeneration_HighRes(Config->GetBiomeMapResolution(), targetResolution);
 
 	// Update the terrain height
-	Perform_HeightMapModification(targetResolution);
+	//Perform_HeightMapModification(targetResolution);
 }
 
 void AProcGenManager::PerformBiomeGeneration_LowRes(uint16 HeightmapResolution) {
@@ -367,16 +368,32 @@ void AProcGenManager::PerformBiomeGeneration_HighRes(uint16 lowResMapResolution,
 
 }
 
-void AProcGenManager::Perform_HeightMapModification(uint32 targetResolution) {
-	//TargetTerrain.
+void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 
-	//if(Config->InitialHeightModifier) {
+	MArray<float> HeightMap;
 
-	//}
-	//UBaseHeightMapModifierComponent* MapModifierComp = Cast<UBaseHeightMapModifierComponent>(GetComponentByClass(UBaseHeightMapModifierComponent::StaticClass()));
+	TargetTerrain->GetHeights(0,0,3,3, HeightMap);
+
+	//Execute any initial height modifiers
 	if(Config != NULL && !Config->InitialHeightModifier.IsEmpty()) {
-		for(size_t x = 0; x < Config->InitialHeightModifier.Num(); x++) {
-			Config->InitialHeightModifier[x]->Execute();
+		for(int8 x = 0; x < Config->InitialHeightModifier.Num(); x++) {
+			Config->InitialHeightModifier[x]->Execute(targetResolution, HeightMap, FVector());
+		}
+	}
+
+	//Execute height modifiers per biome
+	for(int BiomeIndex = 0; BiomeIndex < Config->Biomes.Num(); BiomeIndex++) {
+		UDA_BiomeConfig* Biome = Config->Biomes[BiomeIndex].Biome;
+		for(int8 x = 0; x < Biome->BiomeHeightModifier.Num(); x++) {
+			Biome->BiomeHeightModifier[x]->Execute(targetResolution, HeightMap, FVector(), BiomeMap, BiomeIndex, Biome);
+		}
+	}
+
+
+	//Execute any post processing height modifiers
+	if(Config != NULL && !Config->PostProcessingHeightModifier.IsEmpty()) {
+		for(int8 x = 0; x < Config->PostProcessingHeightModifier.Num(); x++) {
+			Config->PostProcessingHeightModifier[x]->Execute(targetResolution, HeightMap, FVector());
 		}
 	}
 
@@ -425,7 +442,7 @@ void AProcGenManager::GenerateTile() {
 	UE_LOG(LogTemp, Warning, TEXT("Sections: %d"), TargetTerrain->GetNumSections());*/
 
 	//TargetTerrain->CreateMeshSection_LinearColor
-	//TargetTerrain->CreateMeshSection_LinearColor(0, Vertices, Triangles, TArray<FVector>(), TArray<FVector2D>(), TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
+	TestTerrain->CreateMeshSection_LinearColor(0, Vertices, Triangles, TArray<FVector>(), TArray<FVector2D>(), TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
 
 	//TargetTerrain->CreateMeshSection_LinearColor(0, vertices, Triangles, normals, UV0, vertexColors, tangents, true);
 

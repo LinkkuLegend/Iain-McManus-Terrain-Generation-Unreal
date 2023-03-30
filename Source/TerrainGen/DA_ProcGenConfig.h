@@ -5,7 +5,28 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "DA_BiomeConfig.h"
+#include "MapModifierData.h"
 #include "DA_ProcGenConfig.generated.h"
+
+
+
+UENUM()
+enum class EBiomeMapResolution : uint8 {
+	Size_64x64 = 1,
+	Size_128x128 = 2,
+	Size_256x256 = 4,
+	Size_512x512 = 8
+};
+
+//UENUM()
+//enum class EMapModifierType : uint8 {
+//	Noise = 1,
+//	Random = 2,
+//	SetValue = 3,
+//	Offset = 4
+//};
+
+
 
 USTRUCT(BlueprintType)
 struct TERRAINGEN_API FBiomeConfig {
@@ -20,69 +41,6 @@ public:
 		float Weighting = 1.f;
 
 };
-
-UENUM()
-enum class EBiomeMapResolution : uint8 {
-	Size_64x64 = 1,
-	Size_128x128 = 2,
-	Size_256x256 = 4,
-	Size_512x512 = 8
-};
-
-UENUM()
-enum class EMapModifierType : uint8 {
-	Noise = 1,
-	Random = 2,
-	SetValue = 3,
-	Offset = 4
-};
-
-UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
-class TERRAINGEN_API UMapModifierData : public UObject {
-
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-		EMapModifierType ModifierType = EMapModifierType::Noise;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-		float Strength = 1.f;
-
-	//UFUNCTION()
-	virtual void Execute() PURE_VIRTUAL(UMapModifierData::Execute,);
-
-};
-
-UCLASS()
-class TERRAINGEN_API UMapModifierDataNoise : public UMapModifierData {
-
-	GENERATED_BODY()
-
-public:
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-		float parameterNoise = 1.f;
-
-	//UFUNCTION()
-	virtual void Execute() override;
-};
-
-UCLASS()
-class TERRAINGEN_API UMapModifierDataRandom : public UMapModifierData {
-
-	GENERATED_BODY()
-
-public:
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-		float parameterRandom = 1.f;
-
-	//UFUNCTION()
-	virtual void Execute() override;
-};
-
-
 
 /**
  *
@@ -99,6 +57,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TArray<UMapModifierData*> InitialHeightModifier;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<UMapModifierData*> PostProcessingHeightModifier;
 
 	/*UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		TArray<UBaseHeightMapModifier*> InitialHeightModifier;

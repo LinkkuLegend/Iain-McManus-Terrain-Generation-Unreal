@@ -12,9 +12,11 @@ class ATerrain;
 /**
  * 
  */
-UCLASS(NotPlaceable)
-class TERRAINGEN_API ATerrainCluster : public APartitionActor {
+UCLASS()
+class TERRAINGEN_API ATerrainCluster : public AActor {
 	GENERATED_BODY()
+
+		ATerrainCluster();
 
 		/** X offset from global components grid origin (in quads) */
 		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
@@ -32,6 +34,7 @@ public:
 	UPROPERTY()
 		TArray<TObjectPtr<UTerrainSection>> TerrainSections;
 
+
 public:
 
 	UFUNCTION()
@@ -45,4 +48,5 @@ public:
 
 	ATerrain* GetTerrain() const;
 
+	void MakeMobilityStatic();
 };

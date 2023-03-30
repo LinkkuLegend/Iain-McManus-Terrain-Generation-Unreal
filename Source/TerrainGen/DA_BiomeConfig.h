@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-//#include "DA_BaseHeightMapModifier.h"
+#include "MapModifierData.h"
 #include "DA_BiomeConfig.generated.h"
 
 /**
@@ -33,5 +33,8 @@ public:
 
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		//UDA_BaseHeightMapModifier* HeightModifier;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<UMapModifierData*> BiomeHeightModifier;
 
 };

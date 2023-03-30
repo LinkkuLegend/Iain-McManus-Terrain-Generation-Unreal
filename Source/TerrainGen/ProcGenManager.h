@@ -48,6 +48,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
 		class ATerrain* TargetTerrain;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
+		class UProceduralMeshComponent* TestTerrain;
+
 	UFUNCTION(BlueprintCallable)
 		void RegenerateTerrain();
 
@@ -55,7 +58,8 @@ private:
 
 	void PerformBiomeGeneration_HighRes(uint16 lowResMapResolution, uint32 targetResolution);
 
-	void Perform_HeightMapModification(uint32 targetResolution);
+	UFUNCTION(BlueprintCallable)
+	void Perform_HeightMapModification(int32 targetResolution);
 
 	void PerformSpawnIndividualBiome(short BiomeIndex, uint16 HeightmapResolution);
 

@@ -4,19 +4,19 @@
 
 #include "CoreMinimal.h"
 #include "Components/PrimitiveComponent.h"
+#include <TerrainGen/UtilsDataStructs.h>
 #include "TerrainSection.generated.h"
 
+class UProceduralMeshComponent;
 /**
  * 
  */
 UCLASS(Within = TerrainCluster)
-class TERRAINGEN_API UTerrainSection : public UPrimitiveComponent {
+class TERRAINGEN_API UTerrainSection : public USceneComponent {
 	GENERATED_BODY()
 
-		//UTerrainSection();
-
 	/** X offset from global components grid origin (in quads) */
-		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
 		int32 SectionBaseX;
 
 	/** Y offset from global components grid origin (in quads) */
@@ -44,12 +44,28 @@ class TERRAINGEN_API UTerrainSection : public UPrimitiveComponent {
 	UPROPERTY()
 		UTexture2D* HeightmapTexture;
 
+	UPROPERTY()
+		TArray <UProceduralMeshComponent*> ChunkMesh;
+
+	UPROPERTY()
+		TArray <UStaticMeshComponent*> ChunkStaticMesh;
+
+	UPROPERTY()
+		TArray<UStaticMesh*> StaticMesh;
+
+
+
 public:
 	UFUNCTION()
-		bool IsChunkLoaded(FInt32Vector2 chunk);
+		bool IsSectorLoaded(FInt32Vector2 section);
 
 	FORCEINLINE FInt32Vector2 GetSectionBase() const { return FInt32Vector2(SectionBaseX, SectionBaseY); }
 	FORCEINLINE void SetSectionBase(FInt32Vector2 Base) { SectionBaseX = Base.X; SectionBaseY = Base.Y; }
 
-	void CreateSection(int32 posX, int32 posY, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap);
+	ATerrainCluster* GetCluster() const;
+
+	void CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap);
+
+	void GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& HeightMap);
+
 };

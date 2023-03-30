@@ -73,8 +73,6 @@ public:
 	}
 
 	bool setItem(T item, uint32 x, uint32 y) {
-		if(MultArray.IsEmpty())
-			return false;
 
 		if(x > Columns)
 			return false;
@@ -85,32 +83,39 @@ public:
 		if(MultArray.IsValidIndex(index)) {
 			MultArray[index] = item;
 			return true;
+		} else {
+			UE_LOG(LogTemp, Warning, TEXT("Invalid Index at %dx%d"), x, y);
 		}
 		return false;
 	}
 
-	void PrintContent() {
-		if(MultArray.IsEmpty())
-			return;
 
-		FString JoinedStr;
-		TArray< FStringFormatArg > args;
-		for(size_t y = 0; y < Rows; y++) {
-			for(size_t x = 0; x < Columns; x++) {
-				JoinedStr += getItem(x, y);
-				JoinedStr += ' ';
-			}
-			UE_LOG(LogTemp, Warning, TEXT("%s "), *JoinedStr);
-			JoinedStr.Empty();
-			args.Empty();
-		}
-	}
+	void PrintContent();
 
 	void PrintInfo() {
 		if(!MultArray.IsEmpty()) {
 			UE_LOG(LogTemp, Warning, TEXT("Max Size: %d, Num of elements: %d. Dimensions: (%dx%d)"), MultArray.Max(), MultArray.Num(), Columns, Rows);
 		} else {
 			UE_LOG(LogTemp, Warning, TEXT("No content on the array."));
+		}
+	}
+
+	void Append(MArray<T> AppendableArray, int offsetX, int offsetY) {
+		if(AppendableArray.Rows + offsetY > Rows) {
+			UE_LOG(LogTemp, Warning, TEXT("Append Array too many rows. Our rows: %d. Append Rows: %d. OffsetY: %d"), 
+				   this->Rows, AppendableArray.Rows, offsetY);
+			return;
+		}
+
+		if(AppendableArray.Columns + offsetX > Columns) {
+			UE_LOG(LogTemp, Warning, TEXT("Append Array too many columns."));
+			return;
+		}
+
+		for(uint32 y = 0; y < AppendableArray.Rows; y++) {
+			for(uint32 x = 0; x < AppendableArray.Columns; x++) {
+				setItem(AppendableArray.getItem(x,y), x + offsetX, y + offsetY);
+			}
 		}
 	}
 
