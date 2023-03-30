@@ -13,7 +13,7 @@ UtilsDataStructs::~UtilsDataStructs()
 */
 
 template <>
-void MArray<FString>::PrintContent() {
+void MArray<FString>::PrintContent() const {
 	if(MultArray.IsEmpty())
 		return;
 
@@ -29,7 +29,7 @@ void MArray<FString>::PrintContent() {
 }
 
 template <>
-void MArray<float>::PrintContent() {
+void MArray<float>::PrintContent() const {
 	if(MultArray.IsEmpty())
 		return;
     
@@ -43,4 +43,6 @@ void MArray<float>::PrintContent() {
 	}
 
 }
+
+
 

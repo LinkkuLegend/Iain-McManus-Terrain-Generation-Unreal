@@ -168,7 +168,7 @@ UTerrainSection* ATerrain::GetSectionByChunk(FInt32Vector2 chunk) {
 	FInt32Vector2 SectorPosition, ClusterPosition;
 	FTerrainInfo::ChunkToSectionAndCluster(chunk, SectorPosition, ClusterPosition);
 
-	if (cluster == nullptr)
+	if(cluster == nullptr)
 		return nullptr;
 
 	for(UTerrainSection* section : cluster->TerrainSections) {
@@ -271,7 +271,7 @@ void ATerrain::GetHeights(int ChunkPosX, int ChunkPosY, int NumChunksX, int NumC
 	HeightMap.PrintInfo();
 
 	check(NumChunksX >= 0 || NumChunksY >= 0);
-
+	MArray<float> ChunkHeightMap;
 	for(int y = ChunkPosY; y < ChunkPosY + (NumChunksY + 1); y++) {
 		for(int x = ChunkPosX; x < ChunkPosX + (NumChunksX + 1); x++) {
 			UTerrainSection* section = GetSectionByChunk(FInt32Vector2(x, y));
@@ -279,144 +279,60 @@ void ATerrain::GetHeights(int ChunkPosX, int ChunkPosY, int NumChunksX, int NumC
 			if(section == nullptr)
 				continue;
 
-			MArray<float> ChunkHeightMap;
+			//MArray<float> ChunkHeightMap;
 			section->GetChunkHeights(FInt32Vector2(x, y), ChunkHeightMap);
-			ChunkHeightMap.PrintInfo();
-			//ChunkHeightMap.PrintContent();
-			/*UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 0x0 with value: (%f)"), x, y, ChunkHeightMap.getItem(0,0));
-			UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 64x0 with value: (%f)"), x, y, ChunkHeightMap.getItem(64, 0));
-			UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 0x64 with value: (%f)"), x, y, ChunkHeightMap.getItem(0, 64));
-			UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 64x64 with value: (%f)"), x, y, ChunkHeightMap.getItem(64, 64));*/
-
+			//ChunkHeightMap.PrintInfo();
 			HeightMap.Append(ChunkHeightMap, (x - ChunkPosX) * FTerrainInfo::ChunkSize, (y - ChunkPosY) * FTerrainInfo::ChunkSize);
 		}
 	}
 
 	HeightMap.PrintInfo();
+	ChunkHeightMap.PrintInfo();
+	ChunkHeightMap.PrintContent();
 
-	/*UE_LOG(LogTemp, Log, TEXT(" --------------------------------- "));
 
-	for(int y = ChunkPosY; y < ChunkPosY + (NumChunksY + 1); y++) {
-		for(int x = ChunkPosX; x < ChunkPosX + (NumChunksX + 1); x++) {
+}
 
-			UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 0x0 with value: (%f)"), x, y, HeightMap.getItem(0 + ((x - ChunkPosX) * FTerrainInfo::ChunkSize), 0 + (y - ChunkPosY) * FTerrainInfo::ChunkSize));
-			UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 64x0 with value: (%f)"), x, y, HeightMap.getItem(64 + ((x - ChunkPosX) * FTerrainInfo::ChunkSize), 0 + (y - ChunkPosY) * FTerrainInfo::ChunkSize));
-			UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 0x64 with value: (%f)"), x, y, HeightMap.getItem(0 + ((x - ChunkPosX) * FTerrainInfo::ChunkSize), 64 + (y - ChunkPosY) * FTerrainInfo::ChunkSize));
-			UE_LOG(LogTemp, Log, TEXT("Chunk %dx%d at position 64x64 with value: (%f)"), x, y, HeightMap.getItem(64 + ((x - ChunkPosX) * FTerrainInfo::ChunkSize), 64 + (y - ChunkPosY) * FTerrainInfo::ChunkSize));
+/*
+* This function is for populate whole Chunks, not fine refinement.
+*/
+void ATerrain::SetHeights(int ChunkPosX, int ChunkPosY, const MArray<float>& HeightMap) {
 
+	//HeightMap.PrintContent();
+
+	FUintVector2 HeightMapSize = HeightMap.GetArraySize();
+
+	//Checks in case there is something wrong with HeightMap
+	check(HeightMapSize.X > FTerrainInfo::ChunkSize); // Check if there is a minimum of one chunk in X
+	check(HeightMapSize.Y > FTerrainInfo::ChunkSize); // Check if there is a minimum of one chunk in Y
+	check(HeightMapSize.X % FTerrainInfo::ChunkSize == 1); // Check if the columns have the correct size to be able to contain a Chunk
+	check(HeightMapSize.Y % FTerrainInfo::ChunkSize == 1); // Check if the rows    have the correct size to be able to contain a Chunk
+
+	/*UE_LOG(LogTemp, Warning, TEXT("Columns: %d, ChunkSize: %d Rest: %d"), HeightMapSize.X, FTerrainInfo::ChunkSize, HeightMapSize.X % FTerrainInfo::ChunkSize);
+	UE_LOG(LogTemp, Warning, TEXT("Rows: %d, ChunkSize: %d Rest: %d"), HeightMapSize.Y, FTerrainInfo::ChunkSize, HeightMapSize.Y % FTerrainInfo::ChunkSize);*/
+	int NumChunksX = HeightMapSize.X / FTerrainInfo::ChunkSize;
+	int NumChunksY = HeightMapSize.Y / FTerrainInfo::ChunkSize;
+	MArray<float> ChunkHeightMap;
+	for(int y = ChunkPosY; y < ChunkPosY + NumChunksY; y++) {
+		for(int x = ChunkPosX; x < ChunkPosX + NumChunksX; x++) {
+			UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), y, x);
+			UE_LOG(LogTemp, Warning, TEXT("Array Position X: %dx%d"), (x - ChunkPosX) * FTerrainInfo::ChunkSize, ((x - ChunkPosX) + 1) * FTerrainInfo::ChunkSize);
+			UE_LOG(LogTemp, Warning, TEXT("Array Position Y: %dx%d"), (y - ChunkPosY) * FTerrainInfo::ChunkSize, ((y - ChunkPosY) + 1) * FTerrainInfo::ChunkSize);
+			ChunkHeightMap = HeightMap.getArea((x - ChunkPosX) * FTerrainInfo::ChunkSize, 
+															 (y - ChunkPosY) * FTerrainInfo::ChunkSize,
+															 FTerrainInfo::ChunkSize,
+															 FTerrainInfo::ChunkSize);
+			//ChunkHeightMap.PrintInfo();
+
+			UTerrainSection* section = GetSectionByChunk(FInt32Vector2(x, y));
+
+			if(section == nullptr)
+				continue;
+
+			section->CreateChunkMeshFromHeightMap(FInt32Vector2(x, y), ChunkHeightMap);
 		}
-	}*/
+	}
 
+	//ChunkHeightMap.PrintContent();
 
-
-	//FInt32Vector2 SectorInitialPosition, ClusterInitialPosition;
-	//FInt32Vector2 SectorFinalPosition, ClusterFinalPosition;
-	//FInt32Vector2 ChunkVector(ChunkPosX + NumChunksX, ChunkPosY + NumChunksY);
-
-
-	//FTerrainInfo::ChunkToSectionAndCluster(FInt32Vector2(ChunkPosX, ChunkPosY), SectorInitialPosition, ClusterInitialPosition);
-	//FTerrainInfo::ChunkToSectionAndCluster(ChunkVector, SectorFinalPosition, ClusterFinalPosition);
-
-	//UE_LOG(LogTemp, Warning, TEXT("Initial: %dx%d Final: %dx%d"),
-	//	   SectorInitialPosition.X, SectorInitialPosition.Y,
-	//	   SectorFinalPosition.X, SectorFinalPosition.Y);
-
-
-	//// Iterate over all TerrainSections that intersect with the requested area
-	//for(ATerrainCluster* cluster : TerrainClusters) {
-	//	for(UTerrainSection* section : cluster->TerrainSections) {
-	//		FInt32Vector2 SectorBase = section->GetSectionBase();
-	//		UE_LOG(LogTemp, Warning, TEXT("Base: %dx%d"), SectorBase.X, SectorBase.Y);
-
-	//		if(SectorBase.X < SectorInitialPosition.X || SectorBase.X > SectorFinalPosition.X &&
-	//		   SectorBase.Y < SectorInitialPosition.Y || SectorBase.Y > SectorFinalPosition.Y) {
-	//			UE_LOG(LogTemp, Warning, TEXT("Got in"));
-	//			// This section does not intersect with the requested area
-	//			continue;
-	//		}
-
-
-
-	//		/*FInt32Vector2 ChunkBase;
-	//		FTerrainInfo::SectionToChunkAndCluster(SectorBase, ChunkBase, ClusterInitialPosition);
-	//		for(int y = ChunkBase.Y; y < ChunkBase.Y + 1; y++) {
-	//			for(int x = ChunkBase.X; x < ChunkBase.X + 1; x++) {
-	//				if(ChunkBase.X >= ChunkPosX && ChunkBase.X <= ChunkVector.X &&
-	//				   ChunkBase.Y >= ChunkPosY && ChunkBase.Y <= ChunkVector.Y) {
-
-	//					MArray<float> ChunkHeightMap;
-	//					section->GetChunkHeights(FInt32Vector2(x, y), ChunkHeightMap);
-
-	//				}
-	//			}
-	//		}*/
-	//		// Hacer que por cada Chunk busque el Cluster, y después el Sector, así está más robusto, mas lento, pero robusto.
-
-	//		//for(int y = ChunkPosY; y < ChunkPosY + (NumChunksY + 1); y++) {
-	//			//for(int x = ChunkPosX; x < ChunkPosX + (NumChunksX + 1); x++) {
-	//		MArray<float> ChunkHeightMap;
-	//		//FInt32Vector2 ChunkLocalPos = FInt32Vector2(x, y);
-
-	//		section->GetChunkHeights(FInt32Vector2(ChunkPosX, ChunkPosY), ChunkHeightMap);
-
-	//		//int OffsetX = ChunkLocalPos.X * FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize;
-	//		//int OffsetY = ChunkLocalPos.Y * FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize;
-	//		UE_LOG(LogTemp, Warning, TEXT("We are at %dx%d"), ChunkPosY, ChunkPosY);
-	//		HeightMap.Append(ChunkHeightMap, ChunkPosX * FTerrainInfo::ChunkSize, ChunkPosY * FTerrainInfo::ChunkSize);
-	//		//}
-	//	//}
-
-
-	//	}
-	//}
-
-	// Iterate over all TerrainSections that intersect with the requested area
-	//for(ATerrainCluster* cluster : TerrainClusters) {
-	//	for(UTerrainSection* section : cluster->TerrainSections) {
-	//		int sectionMinX = section->GetActorLocation().X - chunkSize / 2;
-	//		int sectionMinY = section->GetActorLocation().Y - chunkSize / 2;
-	//		int sectionMaxX = sectionMinX + chunkSize;
-	//		int sectionMaxY = sectionMinY + chunkSize;
-
-	//		if(posX + sizeX <= sectionMinX || posY + sizeY <= sectionMinY ||
-	//		   posX >= sectionMaxX || posY >= sectionMaxY) {
-	//			// This section does not intersect with the requested area
-	//			continue;
-	//		}
-
-	//		// Iterate over all chunks in this section that intersect with the requested area
-	//		for(UStaticMeshComponent* chunk : section->ChunkStaticMesh) {
-	//			int chunkMinX = chunk->GetComponentLocation().X - chunkSize / 2;
-	//			int chunkMinY = chunk->GetComponentLocation().Y - chunkSize / 2;
-	//			int chunkMaxX = chunkMinX + chunkSize;
-	//			int chunkMaxY = chunkMinY + chunkSize;
-
-	//			if(posX + sizeX <= chunkMinX || posY + sizeY <= chunkMinY ||
-	//			   posX >= chunkMaxX || posY >= chunkMaxY) {
-	//				// This chunk does not intersect with the requested area
-	//				continue;
-	//			}
-
-	//			// Get the heights from this chunk
-	//			UStaticMesh* mesh = chunk->GetStaticMesh();
-	//			TArray<FVector> vertices;
-	//			//mesh->GetSection(0)->GetVertices(vertices);
-
-	//			int startX = FMath::Max(0, posX - chunkMinX);
-	//			int startY = FMath::Max(0, posY - chunkMinY);
-	//			int endX = FMath::Min(chunkSize, posX + sizeX - chunkMinX);
-	//			int endY = FMath::Min(chunkSize, posY + sizeY - chunkMinY);
-
-	//			for(int x = startX; x < endX; x++) {
-	//				for(int y = startY; y < endY; y++) {
-	//					int index = y * chunkSize + x;
-	//					float height = vertices[index].Z;
-	//					int arrayX = posX + x - chunkMinX;
-	//					int arrayY = posY + y - chunkMinY;
-	//					heights.setItem(height, arrayX, arrayY);
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
 }

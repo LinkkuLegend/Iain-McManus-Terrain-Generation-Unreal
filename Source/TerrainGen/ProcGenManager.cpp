@@ -373,7 +373,6 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 	MArray<float> HeightMap;
 
 	TargetTerrain->GetHeights(0,0,3,3, HeightMap);
-
 	//Execute any initial height modifiers
 	if(Config != NULL && !Config->InitialHeightModifier.IsEmpty()) {
 		for(int8 x = 0; x < Config->InitialHeightModifier.Num(); x++) {
@@ -396,6 +395,8 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 			Config->PostProcessingHeightModifier[x]->Execute(targetResolution, HeightMap, FVector());
 		}
 	}
+	//HeightMap.setItem(500.f, 50,50);
+	TargetTerrain->SetHeights(0,0, HeightMap);
 
 }
 

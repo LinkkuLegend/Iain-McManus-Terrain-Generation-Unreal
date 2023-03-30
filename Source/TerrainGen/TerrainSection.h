@@ -66,6 +66,8 @@ public:
 
 	void CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap);
 
+	void CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos,const MArray<float>& HeightMap);
+
 	void GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& HeightMap);
 
 };

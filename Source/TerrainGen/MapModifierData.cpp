@@ -5,19 +5,19 @@
 #include "MapModifierData.h"
 
 
-void UMapModifierDataNoise::Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
+void UMapModifierDataNoise::Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
 	UE_LOG(LogTemp, Warning, TEXT("We are at noise."));
 }
 
-void UMapModifierDataRandom::Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
+void UMapModifierDataRandom::Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
 	UE_LOG(LogTemp, Warning, TEXT("We are at random."));
 }
 
-void UMapModifierOffSet::Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
+void UMapModifierOffSet::Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
 	UE_LOG(LogTemp, Warning, TEXT("We are at offset."));
 }
 
-void UMapModifierSetValue::Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
+void UMapModifierSetValue::Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap, int BiomeIndex, UDA_BiomeConfig* BiomeConfig) {
 	UE_LOG(LogTemp, Warning, TEXT("We are at setvalue."));
 
 	/*for(int y = 0; y < MapResolution; y++) {

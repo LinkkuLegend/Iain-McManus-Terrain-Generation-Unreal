@@ -29,7 +29,7 @@ protected:
 public:
 	//UFUNCTION()
 	//virtual void Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) PURE_VIRTUAL(UMapModifierData::Execute, );
-	virtual void Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) PURE_VIRTUAL(UMapModifierData::Execute, );
+	virtual void Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) PURE_VIRTUAL(UMapModifierData::Execute, );
 
 };
 
@@ -44,7 +44,7 @@ public:
 		float NoiseAmount = 0.f;
 
 	//UFUNCTION()
-	virtual void Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
+	virtual void Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
 };
 
 UCLASS()
@@ -58,7 +58,7 @@ public:
 		float HeightDelta = 0.f;
 
 	//UFUNCTION()
-	virtual void Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
+	virtual void Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
 };
 
 UCLASS()
@@ -72,7 +72,7 @@ public:
 		float OffsetAmount = 0.f;
 
 	//UFUNCTION()
-	virtual void Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
+	virtual void Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
 };
 
 UCLASS()
@@ -86,5 +86,5 @@ public:
 		float TargetHeight = 0.f;
 
 	//UFUNCTION()
-	virtual void Execute(int MapResolution, MArray<float> MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
+	virtual void Execute(int MapResolution, MArray<float> &MapHeights, FVector MapScale, MArray<uint8> BiomeMap = MArray<uint8>(), int BiomeIndex = -1, UDA_BiomeConfig* BiomeConfig = nullptr) override;
 };
