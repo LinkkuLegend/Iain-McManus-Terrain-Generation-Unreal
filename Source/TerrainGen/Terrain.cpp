@@ -9,6 +9,7 @@
 #include "Math/NumericLimits.h"
 #include "Math/Vector.h"
 #include "Math/Vector4.h"
+#include <Runtime/Engine/Classes/Kismet/GameplayStatics.h>
 
 // Sets default values
 ATerrain::ATerrain() :
@@ -264,6 +265,37 @@ void ATerrain::DebugPrintLoadedChunks() {
 
 void ATerrain::Reset() {
 	TerrainClusters.Empty();
+	UE_LOG(LogTemp, Warning, TEXT("Resetting..."));
+	// Get all Actors of the specified class
+	//TArray<AActor*> ActorsToDelete;
+	//TSubclassOf<ATerrainCluster> ClusterClass = ATerrainCluster::StaticClass();
+	//UGameplayStatics::GetAllActorsOfClass(GetWorld(), ClusterClass, ActorsToDelete);
+
+	//// Delete each Actor
+	//for(AActor* Actor : ActorsToDelete) {
+	//	TArray<UStaticMeshComponent*> Components;
+	//	UE_LOG(LogTemp, Warning, TEXT("Found it..."));
+	//	Actor->GetComponents<UStaticMeshComponent>(Components);
+
+	//	for(UStaticMeshComponent* Component : Components) {
+	//		Component->UnregisterComponent();
+	//		UE_LOG(LogTemp, Warning, TEXT("Unregistering..."));
+	//	}
+
+	//}
+	// 
+	// Get all actors of a specific class
+	TArray<AActor*> Actors;
+	TSubclassOf<ATerrainCluster> ClusterClass = ATerrainCluster::StaticClass();
+	UGameplayStatics::GetAllActorsOfClass(GWorld, ClusterClass, Actors);
+
+	// Delete all actors of that class
+	for(AActor* Actor : Actors) {
+		Actor->Destroy();
+	}
+
+	
+
 }
 
 void ATerrain::GetHeights(int ChunkPosX, int ChunkPosY, int NumChunksX, int NumChunksY, MArray<float>& HeightMap) {

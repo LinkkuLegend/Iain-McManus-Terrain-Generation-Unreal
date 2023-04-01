@@ -395,7 +395,7 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 			Config->PostProcessingHeightModifier[x]->Execute(targetResolution, HeightMap, FVector());
 		}
 	}
-	//HeightMap.setItem(500.f, 50,50);
+	HeightMap.setItem(500.f, 50,50);
 	TargetTerrain->SetHeights(0,0, HeightMap);
 
 }

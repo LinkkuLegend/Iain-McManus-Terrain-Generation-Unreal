@@ -265,8 +265,9 @@ void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const
 	}
 
 	// At least one material must be added
-	StaticMesh.Add(NewObject<UStaticMesh>(this));
+	StaticMesh[ChunkPosition] = NewObject<UStaticMesh>(this);
 	StaticMesh[ChunkPosition]->GetStaticMaterials().Add(FStaticMaterial());
+
 
 	UStaticMesh::FBuildMeshDescriptionsParams MDParams;
 	MDParams.bBuildSimpleCollision = true;
@@ -277,21 +278,22 @@ void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const
 
 	MeshDescPtrs.Emplace(&MeshDescription);
 	StaticMesh[ChunkPosition]->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
+	
+	
+	// Build the collision data for the mesh
+	StaticMesh[ChunkPosition]->CreateBodySetup();
+	//StaticMesh[ChunkPosition]->GetBodySetup()->AggGeom.ConvexElems.Empty();
+	StaticMesh[ChunkPosition]->ComplexCollisionMesh = StaticMesh[ChunkPosition];
+	StaticMesh[ChunkPosition]->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
+	/*StaticMesh[ChunkPosition]->GetBodySetup()->InvalidatePhysicsData();
+	StaticMesh[ChunkPosition]->GetBodySetup()->CreatePhysicsMeshes();
 
-	// Create the UStaticMeshComponent, give its name, location and properties
-	/*FVector SectionLocalPos = FVector(
-		SectorPos.X * SectionLocalDimension + ChunkSubsectionX * ChunkDimension,
-		SectorPos.Y * SectionLocalDimension + ChunkSubsectionY * ChunkDimension,
-		0.0f);*/
+	StaticMesh[ChunkPosition]->MarkPackageDirty();*/
 
-	/*FString ChunkID = "Chunk ";
-	ChunkID.Append(FString::FromInt(FirstChunkInSector.X + ChunkSubsectionX));
-	ChunkID.Append("-");
-	ChunkID.Append(FString::FromInt(FirstChunkInSector.Y + ChunkSubsectionY));*/
-
-	// Assign new static mesh to the static mesh component
-	//ChunkStaticMesh.Add(NewObject<UStaticMeshComponent>(this, FName(ChunkID)));
 	ChunkStaticMesh[ChunkPosition]->SetStaticMesh(StaticMesh[ChunkPosition]);
+	ChunkStaticMesh[ChunkPosition]->bDrawMeshCollisionIfComplex = true;
+	ChunkStaticMesh[ChunkPosition]->bDrawMeshCollisionIfSimple = true;
+	ChunkStaticMesh[ChunkPosition]->UpdateCollisionFromStaticMesh();
 	/*ChunkStaticMesh[ChunkPosition]->SetWorldLocation(SectionLocalPos);
 	ChunkStaticMesh[ChunkPosition]->Mobility = EComponentMobility::Static;
 	ChunkStaticMesh[ChunkPosition]->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -313,7 +315,7 @@ void UTerrainSection::GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& Hei
 	int pos = FTerrainInfo::ChunkToSectionPosition(ChunkPos);
 	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, pos);
 
-	if(!IsValidLowLevel()) return;
+	//if(!IsValidLowLevel()) return;
 	if(!StaticMesh[pos]) return;
 	if(!StaticMesh[pos]->GetRenderData()) return;
 
