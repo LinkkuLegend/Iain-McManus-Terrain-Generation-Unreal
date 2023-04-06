@@ -101,8 +101,6 @@ void AProcGenManager::PerformBiomeGeneration_LowRes(uint16 HeightmapResolution) 
 	while(biomesToSpawn.Num() > 0) {
 		//for(size_t i = 0; i < 10; ++i) {
 
-
-
 			// Extract the biome index
 		int biomeArrayIndex = biomesToSpawn.Num() - 1;
 		short biomeID = biomesToSpawn[biomeArrayIndex];
@@ -371,12 +369,13 @@ void AProcGenManager::PerformBiomeGeneration_HighRes(uint16 lowResMapResolution,
 void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 
 	MArray<float> HeightMap;
+	//HeightMap.PrintContent();
 
 	TargetTerrain->GetHeights(0,0,3,3, HeightMap);
 	//Execute any initial height modifiers
 	if(Config != NULL && !Config->InitialHeightModifier.IsEmpty()) {
 		for(int8 x = 0; x < Config->InitialHeightModifier.Num(); x++) {
-			Config->InitialHeightModifier[x]->Execute(targetResolution, HeightMap, FVector());
+			Config->InitialHeightModifier[x]->Execute(targetResolution, HeightMap, FVector(1.0f, 1.0f, 1.0f));
 		}
 	}
 
@@ -384,7 +383,7 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 	for(int BiomeIndex = 0; BiomeIndex < Config->Biomes.Num(); BiomeIndex++) {
 		UDA_BiomeConfig* Biome = Config->Biomes[BiomeIndex].Biome;
 		for(int8 x = 0; x < Biome->BiomeHeightModifier.Num(); x++) {
-			Biome->BiomeHeightModifier[x]->Execute(targetResolution, HeightMap, FVector(), BiomeMap, BiomeIndex, Biome);
+			Biome->BiomeHeightModifier[x]->Execute(targetResolution, HeightMap, FVector(1.0f, 1.0f, 1.0f), BiomeMap, BiomeIndex, Biome);
 		}
 	}
 
@@ -392,10 +391,11 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 	//Execute any post processing height modifiers
 	if(Config != NULL && !Config->PostProcessingHeightModifier.IsEmpty()) {
 		for(int8 x = 0; x < Config->PostProcessingHeightModifier.Num(); x++) {
-			Config->PostProcessingHeightModifier[x]->Execute(targetResolution, HeightMap, FVector());
+			Config->PostProcessingHeightModifier[x]->Execute(targetResolution, HeightMap, FVector(1.0f, 1.0f, 1.0f));
 		}
 	}
-	HeightMap.setItem(500.f, 50,50);
+	//HeightMap.setItem(500.f, 0,0);
+	//HeightMap.PrintContent();
 	TargetTerrain->SetHeights(0,0, HeightMap);
 
 }
