@@ -15,10 +15,10 @@ AProcGenManager::AProcGenManager() {
 	PrimaryActorTick.bCanEverTick = true;
 	//RootComponent->Mobility = EComponentMobility::Static;
 	//CreateDefaultSubobject<UDynamicMesh>(TEXT("Terrain"));
-	TestTerrain = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("GeneratedMesh"));
+	//TestTerrain = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("GeneratedMesh"));
 	//RootComponent = TargetTerrain;
 	//TargetTerrain->SetCollisionProfileName("BlockAll");
-	SetRootComponent(TestTerrain);
+	//SetRootComponent(TestTerrain);
 	//TargetTerrain->bUseAsyncCooking = true;
 
 	InitializeNeighbourOffsets();
@@ -61,6 +61,9 @@ void AProcGenManager::RegenerateTerrain() {
 
 	uint32 targetResolution{ 257 };
 
+	if(RegenerateLayers)
+		Perform_LayerSetup();
+
 	// Generate the low resolution biome map
 	PerformBiomeGeneration_LowRes(Config->GetBiomeMapResolution());
 
@@ -69,6 +72,26 @@ void AProcGenManager::RegenerateTerrain() {
 
 	// Update the terrain height
 	//Perform_HeightMapModification(targetResolution);
+}
+
+void AProcGenManager::Perform_LayerSetup() {
+
+	// Delete any previous existing layers
+	// Not implemented and not sure if we need this
+
+	// Create new layers
+	// Iterate over the biomes
+	for(int i = 0; i < Config->Biomes.Num(); i++) {
+
+		UDA_BiomeConfig* Biome = Config->Biomes[i].Biome;
+
+		// Iterate over the textures
+		for(UBiomeTexture* texture : Biome->Textures) {
+
+		}
+
+	}
+
 }
 
 void AProcGenManager::PerformBiomeGeneration_LowRes(uint16 HeightmapResolution) {
@@ -371,7 +394,7 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 	MArray<float> HeightMap;
 	//HeightMap.PrintContent();
 
-	TargetTerrain->GetHeights(0,0,3,3, HeightMap);
+	TargetTerrain->GetHeights(0, 0, 3, 3, HeightMap);
 	//Execute any initial height modifiers
 	if(Config != NULL && !Config->InitialHeightModifier.IsEmpty()) {
 		for(int8 x = 0; x < Config->InitialHeightModifier.Num(); x++) {
@@ -396,7 +419,8 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 	}
 	//HeightMap.setItem(500.f, 0,0);
 	//HeightMap.PrintContent();
-	TargetTerrain->SetHeights(0,0, HeightMap);
+	TargetTerrain->SetHeights(0, 0, HeightMap);
+	TargetTerrain->SetTextures(0, 0, BiomeMap);
 
 }
 
@@ -404,54 +428,54 @@ void AProcGenManager::Perform_HeightMapModification(int32 targetResolution) {
 * Code from: https://www.bluefruitgames.com/creating-a-procedural-mesh-in-unreal-engine/
 */
 
-void AProcGenManager::GenerateTile() {
-
-	UE_LOG(LogTemp, Warning, TEXT("Start of GenerateTile()"));
-
-	/*TArray<FVector> vertices;
-	vertices.Add(FVector(0, 0, 0));
-	vertices.Add(FVector(0, 100, 0));
-	vertices.Add(FVector(0, 0, 100));
-
-	TArray<int32> triangles;
-	Triangles.Add(0);
-	Triangles.Add(1);
-	Triangles.Add(2);
-
-	TArray<FVector> normals;
-	normals.Add(FVector(1, 0, 0));
-	normals.Add(FVector(1, 0, 0));
-	normals.Add(FVector(1, 0, 0));
-
-	TArray<FVector2D> UV0;
-	UV0.Add(FVector2D(0, 0));
-	UV0.Add(FVector2D(10, 0));
-	UV0.Add(FVector2D(0, 10));
-
-
-	TArray<FProcMeshTangent> tangents;
-	tangents.Add(FProcMeshTangent(0, 1, 0));
-	tangents.Add(FProcMeshTangent(0, 1, 0));
-	tangents.Add(FProcMeshTangent(0, 1, 0));
-
-	TArray<FLinearColor> vertexColors;
-	vertexColors.Add(FLinearColor(0.75, 0.75, 0.75, 1.0));
-	vertexColors.Add(FLinearColor(0.75, 0.75, 0.75, 1.0));
-	vertexColors.Add(FLinearColor(0.75, 0.75, 0.75, 1.0));
-
-	UE_LOG(LogTemp, Warning, TEXT("Testing"));
-	UE_LOG(LogTemp, Warning, TEXT("Sections: %d"), TargetTerrain->GetNumSections());*/
-
-	//TargetTerrain->CreateMeshSection_LinearColor
-	TestTerrain->CreateMeshSection_LinearColor(0, Vertices, Triangles, TArray<FVector>(), TArray<FVector2D>(), TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
-
-	//TargetTerrain->CreateMeshSection_LinearColor(0, vertices, Triangles, normals, UV0, vertexColors, tangents, true);
-
-
-	// Enable collision data
-	//TargetTerrain->ContainsPhysicsTriMeshData(true);
-
-}
+//void AProcGenManager::GenerateTile() {
+//
+//	UE_LOG(LogTemp, Warning, TEXT("Start of GenerateTile()"));
+//
+//	/*TArray<FVector> vertices;
+//	vertices.Add(FVector(0, 0, 0));
+//	vertices.Add(FVector(0, 100, 0));
+//	vertices.Add(FVector(0, 0, 100));
+//
+//	TArray<int32> triangles;
+//	Triangles.Add(0);
+//	Triangles.Add(1);
+//	Triangles.Add(2);
+//
+//	TArray<FVector> normals;
+//	normals.Add(FVector(1, 0, 0));
+//	normals.Add(FVector(1, 0, 0));
+//	normals.Add(FVector(1, 0, 0));
+//
+//	TArray<FVector2D> UV0;
+//	UV0.Add(FVector2D(0, 0));
+//	UV0.Add(FVector2D(10, 0));
+//	UV0.Add(FVector2D(0, 10));
+//
+//
+//	TArray<FProcMeshTangent> tangents;
+//	tangents.Add(FProcMeshTangent(0, 1, 0));
+//	tangents.Add(FProcMeshTangent(0, 1, 0));
+//	tangents.Add(FProcMeshTangent(0, 1, 0));
+//
+//	TArray<FLinearColor> vertexColors;
+//	vertexColors.Add(FLinearColor(0.75, 0.75, 0.75, 1.0));
+//	vertexColors.Add(FLinearColor(0.75, 0.75, 0.75, 1.0));
+//	vertexColors.Add(FLinearColor(0.75, 0.75, 0.75, 1.0));
+//
+//	UE_LOG(LogTemp, Warning, TEXT("Testing"));
+//	UE_LOG(LogTemp, Warning, TEXT("Sections: %d"), TargetTerrain->GetNumSections());*/
+//
+//	//TargetTerrain->CreateMeshSection_LinearColor
+//	//TestTerrain->CreateMeshSection_LinearColor(0, Vertices, Triangles, TArray<FVector>(), TArray<FVector2D>(), TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
+//
+//	//TargetTerrain->CreateMeshSection_LinearColor(0, vertices, Triangles, normals, UV0, vertexColors, tangents, true);
+//
+//
+//	// Enable collision data
+//	//TargetTerrain->ContainsPhysicsTriMeshData(true);
+//
+//}
 
 
 

@@ -66,6 +66,31 @@ void ATerrainGenCharacter::BeginPlay()
 	}
 }
 
+void ATerrainGenCharacter::Tick(float DeltaTime) {
+	// Call the base class  
+	Super::Tick(DeltaTime);
+
+	/*if(FollowCamera) {
+		const FVector ViewLocation = FollowCamera->GetComponentLocation();
+		const FRotator ViewRotation = FollowCamera->GetComponentRotation();
+		FMinimalViewInfo CameraView;
+		FollowCamera->GetCameraView(DeltaTime, CameraView);
+		const float FOV = CameraView.FOV;
+		const float NearPlane = CameraView.PerspectiveNearClipPlane;
+		const float FarPlane = CameraView.OrthoFarClipPlane;
+		const FColor DebugColor = FColor::Green;
+		const float DebugDuration = DeltaTime;
+		const FMatrix FrustumToWorld = FReversedZPerspectiveMatrix(
+			FMath::DegreesToRadians(FOV),
+			CameraView.AspectRatio,
+			NearPlane,
+			FarPlane
+		) * FInverseRotationMatrix(ViewRotation) * FTranslationMatrix(ViewLocation);
+		DrawDebugFrustum(GetWorld(), FrustumToWorld, DebugColor, true, DebugDuration);
+	}*/
+	
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Input
 

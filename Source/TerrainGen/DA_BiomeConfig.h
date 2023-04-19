@@ -7,6 +7,19 @@
 #include "MapModifierData.h"
 #include "DA_BiomeConfig.generated.h"
 
+
+UCLASS()
+class TERRAINGEN_API UBiomeTexture : public UObject {
+	GENERATED_BODY()
+public:
+	UBiomeTexture(const FObjectInitializer& ObjectInitializer);
+
+	FString UniqueID;
+	UTexture2D* Albedo;
+	UTexture2D* NormalMap;
+};
+
+
 /**
  *
  */
@@ -31,10 +44,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 		float MaxDecayRate = 0.02f;
 
-	//UPROPERTY(EditAnywhere, BlueprintReadOnly)
-		//UDA_BaseHeightMapModifier* HeightModifier;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TArray<UMapModifierData*> BiomeHeightModifier;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<UBiomeTexture*> Textures;
+
 
 };

@@ -43,6 +43,10 @@ public:
 	UFUNCTION()
 		void LoadChunk(FInt32Vector2 chunk, uint8 sectionsPerCluster);
 
+	void LoadAllChunksInCluster();
+
+	void HideOutOfRangeChunks(const FVector2D& SphereCenter, float SphereRadius);
+
 	FORCEINLINE FInt32Vector2 GetClusterBase() const { return FInt32Vector2(ClusterBaseX, ClusterBaseY); }
 	FORCEINLINE void SetClusterBase(FInt32Vector2 Base) { ClusterBaseX = Base.X; ClusterBaseY = Base.Y; }
 

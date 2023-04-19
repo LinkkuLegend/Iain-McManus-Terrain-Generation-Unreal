@@ -3,20 +3,50 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "HAL/CriticalSection.h"
+#include "Runtime/Core/Public/Containers/Queue.h"
+
 #include "Components/PrimitiveComponent.h"
 #include <TerrainGen/UtilsDataStructs.h>
 #include "TerrainSection.generated.h"
 
 class UProceduralMeshComponent;
+
+
+USTRUCT(BlueprintType)
+struct TERRAINGEN_API FChunkData {
+	GENERATED_BODY()
+public:
+	FInt32Vector2 ChunkPos;
+	UStaticMesh* Mesh;
+	UStaticMeshComponent* ChunkComponent;
+};
+
+
+//USTRUCT(BlueprintType)
+//struct TERRAINGEN_API FBiomeConfig {
+//
+//	GENERATED_BODY()
+//
+//public:
+//	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+//		UDA_BiomeConfig* Biome;
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+//		float Weighting = 1.f;
+//
+//};
+
+
 /**
- * 
+ *
  */
 UCLASS(Within = TerrainCluster)
 class TERRAINGEN_API UTerrainSection : public USceneComponent {
 	GENERATED_BODY()
 
-	/** X offset from global components grid origin (in quads) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
+		/** X offset from global components grid origin (in quads) */
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
 		int32 SectionBaseX;
 
 	/** Y offset from global components grid origin (in quads) */
@@ -44,16 +74,17 @@ class TERRAINGEN_API UTerrainSection : public USceneComponent {
 	UPROPERTY()
 		UTexture2D* HeightmapTexture;
 
-	UPROPERTY()
-		TArray <UProceduralMeshComponent*> ChunkMesh;
+	//UPROPERTY()
+	//	TArray <UProceduralMeshComponent*> ChunkMesh;
+
+	//UPROPERTY()
+	//	TArray <UStaticMeshComponent*> ChunkStaticMesh;
 
 	UPROPERTY()
-		TArray <UStaticMeshComponent*> ChunkStaticMesh;
-
-	UPROPERTY()
-		TArray<UStaticMesh*> StaticMesh;
+		TArray<FChunkData> StaticMesh;
 
 
+	TQueue<FChunkData> StaticMeshLoadAsync;
 
 public:
 	UFUNCTION()
@@ -64,10 +95,26 @@ public:
 
 	ATerrainCluster* GetCluster() const;
 
-	void CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap);
+	//DEPRECATED
+	//void CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap);
+	void LoadSection(FInt32Vector2 SectionPos, UTexture2D* heightMap);
 
-	void CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos,const MArray<float>& HeightMap);
+	void CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap);
+
+	void LoadChunkAsync(FInt32Vector2 ChunkSubsection, FInt32Vector2 Section);
+
+	void CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const MArray<uint8>& BiomeMap);
 
 	void GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& HeightMap);
+
+	void HideOutOfRangeChunks(const FVector2D& SphereCenter, float SphereRadius);
+
+	
+
+private:
+
+	FCriticalSection ChunkLoadLock;
+
+	void LoadDataFromAsyncLoad();
 
 };

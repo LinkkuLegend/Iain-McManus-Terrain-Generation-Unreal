@@ -42,6 +42,7 @@ public:
 		clusterX = FMath::FloorToInt(chunk.X / clusterFactor);
 		clusterY = FMath::FloorToInt(chunk.Y / clusterFactor);
 
+
 		sector = FInt32Vector2(sectionX, sectionY);
 		cluster = FInt32Vector2(clusterX, clusterY);
 	}
@@ -57,21 +58,41 @@ public:
 		float clusterFactor = SectionsPerCluster * 1.0f;
 
 
-		chunkX = FMath::FloorToInt(chunk.X * chunkFactor);
-		clusterX = FMath::FloorToInt(chunk.X / clusterFactor);
+		chunkX = FMath::FloorToInt(sector.X * chunkFactor);
+		clusterX = FMath::FloorToInt(sector.X / clusterFactor);
 
-		chunkY = FMath::FloorToInt(chunk.Y * chunkFactor);
-		clusterY = FMath::FloorToInt(chunk.Y / clusterFactor);
+		chunkY = FMath::FloorToInt(sector.Y * chunkFactor);
+		clusterY = FMath::FloorToInt(sector.Y / clusterFactor);
 
 		chunk = FInt32Vector2(chunkX, chunkY);
 		cluster = FInt32Vector2(clusterX, clusterY);
+	}
+
+	/*
+	*  Take into account we will return the first chunk and sector
+	*/
+	static void ClusterToChunkAndSection(FInt32Vector2 cluster, FInt32Vector2& chunk, FInt32Vector2& section) {
+		int chunkX, chunkY;
+		int sectionX, sectionY;
+
+		float chunkFactor = ChunksPerSection * SectionsPerCluster * 1.0f;
+		float sectorFactor = SectionsPerCluster * 1.0f;
+
+		chunkX = FMath::FloorToInt(cluster.X * chunkFactor);
+		sectionX = FMath::FloorToInt(cluster.X / sectorFactor);
+
+		chunkY = FMath::FloorToInt(cluster.Y * chunkFactor);
+		sectionY = FMath::FloorToInt(cluster.Y / sectorFactor);
+
+		chunk = FInt32Vector2(chunkX, chunkY);
+		section = FInt32Vector2(sectionX, sectionY);
 	}
 
 
 	/*									______
 	*  If ChunksPerSection = 2 we		|2	3|
 	*  will get the next positions		|0	1|
-	*/									
+	*/
 	static int ChunkToSectionPosition(FInt32Vector2 chunk) {
 		int X = chunk.X % ChunksPerSection;
 		int Y = chunk.Y % ChunksPerSection;
@@ -92,11 +113,11 @@ private:
 
 private:
 
-	/* In number of Sections in one of the axis */
+	/* The number of Chunks to load in any direccion, the chunk where the player is located is included */
 	uint8 VisionRange;
 
 
-	FInt32Vector2 CurrentProxy(FVector Location);
+	//FInt32Vector2 CurrentProxy(FVector Location);
 
 
 private:
@@ -118,6 +139,9 @@ public:
 
 	void GetHeights(int ChunkPosX, int ChunkPosY, int NumChunksX, int NumChunksY, MArray<float>& HeightMap);
 	void SetHeights(int ChunkPosX, int ChunkPosY, const MArray<float>& HeightMap);
+	void SetTextures(int ChunkPosX, int ChunkPosY, const MArray<uint8>& BiomeMap);
+
+	int GetVisionRadius();
 
 	UFUNCTION(BlueprintCallable)
 		void UpdateTerrain(FVector PlayerPosition);
@@ -128,15 +152,22 @@ public:
 	UFUNCTION()
 		void LoadChunk(FInt32Vector2 chunk);
 
+	UFUNCTION()
+		void LoadClusterAsync(FInt32Vector2 cluster);
+
 	UFUNCTION(BlueprintCallable)
 		FORCEINLINE ATerrain* GetTerrain() { return this; };
 
 	
-private: 
+
+private:
 
 	ATerrainCluster* GetClusterByChunk(FInt32Vector2 chunk);
 
 	UTerrainSection* GetSectionByChunk(FInt32Vector2 chunk);
+
+	UFUNCTION()
+		void HideOutOfRangeChunks(const FVector2D& PlayerLocation, float VisionRangeRadius);
 
 
 };

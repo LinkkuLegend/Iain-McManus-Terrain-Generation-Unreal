@@ -5,6 +5,9 @@
 #include "TerrainCluster.h"
 #include "Terrain.h"
 
+#include "Misc/DateTime.h"
+#include "Math/UnrealMathUtility.h"
+
 #include "ProceduralMeshComponent.h"
 #include "MeshDescription.h"
 #include "StaticMeshOperations.h"
@@ -13,200 +16,509 @@
 
 
 
-void UTerrainSection::CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap) {
+void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, UTexture2D* heightMap) {
 
-	SectionBaseX = SectorPos.X;
-	SectionBaseY = SectorPos.Y;
+	SectionBaseX = SectionPos.X;
+	SectionBaseY = SectionPos.Y;
 
-	NumChunks = numSubsections;
-	ChunkNumQuads = chunkSize - 1;
-	TotalNumQuads = ChunkNumQuads * (numSubsections ^ 2);
+	NumChunks = FTerrainInfo::SectionsPerCluster;
+	ChunkNumQuads = FTerrainInfo::ChunkSize - 1;
+	TotalNumQuads = ChunkNumQuads * (NumChunks ^ 2);
 
-	FGuid name = FGuid::NewGuid();
-	//ChunkMesh = NewObject<UProceduralMeshComponent>(this, FName(name.ToString()));
-	float SectionLocalDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize * FTerrainInfo::SectionsPerCluster;
-	float ChunkDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize;
+	//FGuid name = FGuid::NewGuid();
+
+	int SectionLocalDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize * FTerrainInfo::SectionsPerCluster;
+	int ChunkDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize;
+
+	FInt32Vector2 FirstChunkInSection = FInt32Vector2(SectionPos.X * FTerrainInfo::ChunksPerSection, SectionPos.Y * FTerrainInfo::ChunksPerSection);
 
 	//Procedural Mesh version
 
-	/*for(int ChunkSubsectionY = 0; ChunkSubsectionY < numSubsections; ChunkSubsectionY++) {
-		for(int ChunkSubsectionX = 0; ChunkSubsectionX < numSubsections; ChunkSubsectionX++) {
+	//for(int ChunkSubsectionY = 0; ChunkSubsectionY < NumChunks; ChunkSubsectionY++) {
+	//	for(int ChunkSubsectionX = 0; ChunkSubsectionX < NumChunks; ChunkSubsectionX++) {
+	//		UE_LOG(LogTemp, Log, TEXT("Start loop: %f seconds"), (FDateTime::UtcNow() - StartTime).GetTotalSeconds());
+	//		int ChunkSubsection = ChunkSubsectionX + ChunkSubsectionY * NumChunks;
 
-			int ChunkSubsection = ChunkSubsectionX + ChunkSubsectionY * numSubsections;
+	//		FVector SectionLocalPos = FVector(
+	//			SectionPos.X * SectionLocalDimension + ChunkSubsectionX * ChunkDimension,
+	//			SectionPos.Y * SectionLocalDimension + ChunkSubsectionY * ChunkDimension,
+	//			0.0f);
 
-			FVector SectionLocalPos = FVector(
-				SectorPos.X * SectionLocalDimension + ChunkSubsectionX * ChunkDimension,
-				SectorPos.Y * SectionLocalDimension + ChunkSubsectionY * ChunkDimension,
-				0.0f);
+	//		FString ChunkID = "Chunk ";
+	//		ChunkID.Append(FString::FromInt(FirstChunkInSection.X + ChunkSubsectionX));
+	//		ChunkID.Append("-");
+	//		ChunkID.Append(FString::FromInt(FirstChunkInSection.Y + ChunkSubsectionY));
 
-			FString ChunkID = "Chunk ";
-			ChunkID.Append(FString::FromInt(FirstChunkInSector.X + ChunkSubsectionX));
-			ChunkID.Append("-");
-			ChunkID.Append(FString::FromInt(FirstChunkInSector.Y + ChunkSubsectionY));
+	//		ChunkMesh.Add(NewObject<UProceduralMeshComponent>(this, FName(ChunkID)));
+	//		ChunkMesh[ChunkSubsection]->SetWorldLocation(SectionLocalPos);
+	//		ChunkMesh[ChunkSubsection]->Mobility = EComponentMobility::Static;
 
-			ChunkMesh.Add(NewObject<UProceduralMeshComponent>(this, FName(ChunkID)));
-			ChunkMesh[ChunkSubsection]->SetWorldLocation(SectionLocalPos);
-			ChunkMesh[ChunkSubsection]->Mobility = EComponentMobility::Static;
+	//		TArray<FVector> Vertices, Normals;
+	//		TArray<int> Triangles;
+	//		TArray<FVector2D> UV0;
+	//		for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
+	//			for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
+	//				Vertices.Add(FVector(x * FTerrainInfo::QuadSize, y * FTerrainInfo::QuadSize, 0));
+	//				Normals.Add(FVector(0, 0, 1));
+	//				UV0.Add(FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)));
+	//			}
+	//		}
 
-			TArray<FVector> Vertices, Normals;
-			TArray<int> Triangles;
-			TArray<FVector2D> UV0;
+	//		//UE_LOG(LogTemp, Warning, TEXT("Num: %d"), Vertices.Num());
+	//		//UE_LOG(LogTemp, Warning, TEXT("Ours: %d"), FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
+	//		int RowCurrent, RowNext;
+	//		for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
+	//			for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
+	//				RowCurrent = x + (FTerrainInfo::ChunkSize + 1) * y;
+	//				RowNext = RowCurrent + FTerrainInfo::ChunkSize + 1;
+	//				Triangles.Add(RowCurrent);
+	//				Triangles.Add(RowNext);
+	//				Triangles.Add(RowCurrent + 1);
+	//				Triangles.Add(RowCurrent + 1);
+	//				Triangles.Add(RowNext);
+	//				Triangles.Add(RowNext + 1);
+	//			}
+	//		}
+	//		ChunkMesh[ChunkSubsection]->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
+	//		ChunkMesh[ChunkSubsection]->RegisterComponent();
+	//		GetCluster()->AddInstanceComponent(ChunkMesh[ChunkSubsection]);
 
-			for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
-				for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
-					Vertices.Add(FVector(x * FTerrainInfo::QuadSize, y * FTerrainInfo::QuadSize, 0));
-					Normals.Add(FVector(0,0,1));
-					UV0.Add(FVector2D(x/(FTerrainInfo::ChunkSize * 1.0f),y / (FTerrainInfo::ChunkSize * 1.0f)));
-				}
-			}
+	//		UE_LOG(LogTemp, Log, TEXT("End loop: %f seconds"), (FDateTime::UtcNow() - StartTime).GetTotalSeconds());
+	//	}
+	//}
 
-			//Debug stuff
-			Vertices[0] = FVector(0 * FTerrainInfo::QuadSize, 0 * FTerrainInfo::QuadSize, 500);
-			Vertices[((FTerrainInfo::ChunkSize + 1) * (FTerrainInfo::ChunkSize + 1)) - 1] = FVector(FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize, FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize, 500);
-
-			UE_LOG(LogTemp, Warning, TEXT("Num: %d"), Vertices.Num());
-			UE_LOG(LogTemp, Warning, TEXT("Ours: %d"), FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
-
-
-
-			int RowCurrent, RowNext;
-			for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
-				for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
-					RowCurrent = x + (FTerrainInfo::ChunkSize + 1) * y;
-					RowNext = RowCurrent + FTerrainInfo::ChunkSize + 1;
-					Triangles.Add(RowCurrent);
-					Triangles.Add(RowNext);
-					Triangles.Add(RowCurrent + 1);
-					Triangles.Add(RowCurrent + 1);
-					Triangles.Add(RowNext);
-					Triangles.Add(RowNext + 1);
-				}
-			}
-
-
-			ChunkMesh[ChunkSubsection]->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, TArray<FLinearColor>(), TArray<FProcMeshTangent>(), true);
-			ChunkMesh[ChunkSubsection]->RegisterComponent();
-			GetCluster()->AddInstanceComponent(ChunkMesh[ChunkSubsection]);
-
-		}
-	}
-	*/
-
+	FInt32Vector2 Chunk, Cluster;
+	FTerrainInfo::SectionToChunkAndCluster(SectionPos, Chunk, Cluster);
 
 	//Static mesh version
 
-	for(int ChunkSubsectionY = 0; ChunkSubsectionY < numSubsections; ChunkSubsectionY++) {
-		for(int ChunkSubsectionX = 0; ChunkSubsectionX < numSubsections; ChunkSubsectionX++) {
+	for(int ChunkSubsectionY = 0; ChunkSubsectionY < NumChunks; ChunkSubsectionY++) {
+		for(int ChunkSubsectionX = 0; ChunkSubsectionX < NumChunks; ChunkSubsectionX++) {
+
 
 			// Basically a chunk ID for the loop
-			int ChunkSubsection = ChunkSubsectionX + ChunkSubsectionY * numSubsections;
+			int ChunkSubsection = ChunkSubsectionX + ChunkSubsectionY * NumChunks;
 
-			// Start of the creation of a static mesh
-			FMeshDescription MeshDescription;
-			FStaticMeshAttributes Attributes(MeshDescription);
-			Attributes.Register();
+			//// Start of the creation of a static mesh
+			//FMeshDescription MeshDescription;
+			//FStaticMeshAttributes Attributes(MeshDescription);
+			//Attributes.Register();
 
-			FMeshDescriptionBuilder MeshDescBuilder;
-			MeshDescBuilder.SetMeshDescription(&MeshDescription);
-			MeshDescBuilder.EnablePolyGroups();
-			MeshDescBuilder.SetNumUVLayers(1);
+			//FMeshDescriptionBuilder MeshDescBuilder;
+			//MeshDescBuilder.SetMeshDescription(&MeshDescription);
+			//MeshDescBuilder.EnablePolyGroups();
+			//MeshDescBuilder.SetNumUVLayers(1);
 
-			TArray<FVertexInstanceID> vertexInsts;
-			//vertexInsts.SetNum(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
-			FVertexInstanceID instance;
+			//TArray<FVertexInstanceID> vertexInsts;
+			////vertexInsts.SetNum(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
+			//FVertexInstanceID instance;
 
-			FVector4f RandomColor = FVector4f(0.0f, 1.0f, 0.0f, 1.0f);
+			//FVector4f RandomColor = FVector4f(0.0f, 1.0f, 0.0f, 1.0f);
 
-			for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
-				for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
-					instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
-						x * FTerrainInfo::QuadSize,
-						y * FTerrainInfo::QuadSize,
-						FMath::RandRange(0.0f, 50.0f))));
-					MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
-					MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
-					MeshDescBuilder.SetInstanceColor(instance, RandomColor);
-					vertexInsts.Add(instance);
-				}
-			}
-
-			// Allocate a polygon group
-			FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
-			FStaticMeshOperations::RecomputeNormalsAndTangentsIfNeeded(MeshDescription, EComputeNTBsFlags::Normals);
-
-			int RowCurrent, RowNext;
-			// Add triangles to mesh description
-			for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
-				for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
-					RowCurrent = x + (FTerrainInfo::ChunkSize + 1) * y;
-					RowNext = RowCurrent + FTerrainInfo::ChunkSize + 1;
-
-					FTriangleID triangle = MeshDescBuilder.AppendTriangle(
-						vertexInsts[RowCurrent],
-						vertexInsts[RowNext],
-						vertexInsts[RowCurrent + 1], PolygonGroup);
+			//for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
+			//	for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
+			//		instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
+			//			x * FTerrainInfo::QuadSize,
+			//			y * FTerrainInfo::QuadSize,
+			//			0.f)));
+			//		MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
+			//		MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
+			//		MeshDescBuilder.SetInstanceColor(instance, RandomColor);
+			//		vertexInsts.Add(instance);
+			//	}
+			//}
 
 
-					triangle = MeshDescBuilder.AppendTriangle(
-						vertexInsts[RowCurrent + 1],
-						vertexInsts[RowNext],
-						vertexInsts[RowNext + 1], PolygonGroup);
+			//// Allocate a polygon group
+			//FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
+
+
+			//int RowCurrent, RowNext;
+			//uint8 ChunkSize = FTerrainInfo::ChunkSize + 1;
+			//// Add triangles to mesh description
+			//for(int y = 0; y < FTerrainInfo::ChunkSize; ++y) {
+			//	for(int x = 0; x < FTerrainInfo::ChunkSize; ++x) {
+			//		RowCurrent = x + ChunkSize * y;
+			//		RowNext = RowCurrent + ChunkSize;
+
+			//		MeshDescBuilder.AppendTriangle(
+			//			vertexInsts[RowCurrent],
+			//			vertexInsts[RowNext],
+			//			vertexInsts[RowCurrent + 1], PolygonGroup);
+
+
+			//		MeshDescBuilder.AppendTriangle(
+			//			vertexInsts[RowCurrent + 1],
+			//			vertexInsts[RowNext],
+			//			vertexInsts[RowNext + 1], PolygonGroup);
 
 
 
-				}
-			}
-
-			// At least one material must be added
-			StaticMesh.Add(NewObject<UStaticMesh>(this));
-			StaticMesh[ChunkSubsection]->GetStaticMaterials().Add(FStaticMaterial());
-
-			UStaticMesh::FBuildMeshDescriptionsParams MDParams;
-			MDParams.bBuildSimpleCollision = true;
-			MDParams.bFastBuild = true;
-
-			// Build static mesh
-			TArray<const FMeshDescription*> MeshDescPtrs;
-
-			MeshDescPtrs.Emplace(&MeshDescription);
-			StaticMesh[ChunkSubsection]->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
-
-			// Create the UStaticMeshComponent, give its name, location and properties
-			FVector SectionLocalPos = FVector(
-				SectorPos.X * SectionLocalDimension + ChunkSubsectionX * ChunkDimension,
-				SectorPos.Y * SectionLocalDimension + ChunkSubsectionY * ChunkDimension,
-				0.0f);
-
-			FString ChunkID = "Chunk ";
-			ChunkID.Append(FString::FromInt(FirstChunkInSector.X + ChunkSubsectionX));
-			ChunkID.Append("-");
-			ChunkID.Append(FString::FromInt(FirstChunkInSector.Y + ChunkSubsectionY));
-
-			// Assign new static mesh to the static mesh component
-			ChunkStaticMesh.Add(NewObject<UStaticMeshComponent>(this, FName(ChunkID)));
-			ChunkStaticMesh[ChunkSubsection]->SetStaticMesh(StaticMesh[ChunkSubsection]);
-			ChunkStaticMesh[ChunkSubsection]->SetWorldLocation(SectionLocalPos);
-			ChunkStaticMesh[ChunkSubsection]->Mobility = EComponentMobility::Static;
-			ChunkStaticMesh[ChunkSubsection]->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			ChunkStaticMesh[ChunkSubsection]->SetCollisionResponseToAllChannels(ECR_Block);
-			ChunkStaticMesh[ChunkSubsection]->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
+			//	}
+			//}
 
 
-			ChunkStaticMesh[ChunkSubsection]->RegisterComponent();
+			//// At least one material must be added
+			//StaticMesh.Add(NewObject<UStaticMesh>(this));
+			//StaticMesh[ChunkSubsection]->GetStaticMaterials().Add(FStaticMaterial());
+
+			//UStaticMesh::FBuildMeshDescriptionsParams MDParams;
+			//MDParams.bBuildSimpleCollision = true;
+			//MDParams.bFastBuild = true;
+
+			//// Build static mesh
+			//TArray<const FMeshDescription*> MeshDescPtrs;
+
+			//MeshDescPtrs.Emplace(&MeshDescription);
+			//StaticMesh[ChunkSubsection]->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
 
 
-			GetCluster()->AddInstanceComponent(ChunkStaticMesh[ChunkSubsection]);
+			//// Create the UStaticMeshComponent, give its name, location and properties
+			//FVector SectionLocalPos = FVector(
+			//	SectionPos.X * SectionLocalDimension + ChunkSubsectionX * ChunkDimension,
+			//	SectionPos.Y * SectionLocalDimension + ChunkSubsectionY * ChunkDimension,
+			//	0.0f);
+
+			FInt32Vector2 ChunkPos = FInt32Vector2(
+				Chunk.X + ChunkSubsectionX,
+				Chunk.Y + ChunkSubsectionY);
+
+			//UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d done from Section %dx%d."), ChunkPos.X, ChunkPos.Y, SectionPos.X, SectionPos.Y);
+
+
+			FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ChunkPos, SectionPos, this]() {
+				LoadChunkAsync(ChunkPos, SectionPos);
+			}, TStatId(), nullptr, ENamedThreads::AnyBackgroundHiPriTask);
+			FGraphEventArray MyTasks = { MyAsyncTask };
+			FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
+				LoadDataFromAsyncLoad();
+			}, TStatId(), &MyTasks, ENamedThreads::GameThread);
+
+			//FString ChunkID = "Chunk ";
+			//ChunkID.Append(FString::FromInt(FirstChunkInSection.X + ChunkSubsectionX));
+			//ChunkID.Append("-");
+			//ChunkID.Append(FString::FromInt(FirstChunkInSection.Y + ChunkSubsectionY));
+
+			//// Assign new static mesh to the static mesh component
+			//ChunkStaticMesh.Add(NewObject<UStaticMeshComponent>(this, FName(ChunkID)));
+			//ChunkStaticMesh[ChunkSubsection]->SetStaticMesh(StaticMesh[ChunkSubsection]);
+			//ChunkStaticMesh[ChunkSubsection]->SetWorldLocation(SectionLocalPos);
+			//ChunkStaticMesh[ChunkSubsection]->Mobility = EComponentMobility::Static;
+			//ChunkStaticMesh[ChunkSubsection]->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			//ChunkStaticMesh[ChunkSubsection]->SetCollisionResponseToAllChannels(ECR_Block);
+			//ChunkStaticMesh[ChunkSubsection]->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
+
+
+			//ChunkStaticMesh[ChunkSubsection]->RegisterComponent();
+
+
+			//GetCluster()->AddInstanceComponent(ChunkStaticMesh[ChunkSubsection]);
+
 
 		}
 	}
 
+
 }
+
+void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section) {
+
+	// Basically a chunk ID for the loop
+	int ChunkSubsection = Chunk.X + Chunk.Y * FTerrainInfo::SectionsPerCluster;
+
+	// Start of the creation of a static mesh
+	FMeshDescription MeshDescription;
+	FStaticMeshAttributes Attributes(MeshDescription);
+	Attributes.Register();
+
+	FMeshDescriptionBuilder MeshDescBuilder;
+	MeshDescBuilder.SetMeshDescription(&MeshDescription);
+	MeshDescBuilder.EnablePolyGroups();
+	MeshDescBuilder.SetNumUVLayers(1);
+
+	TArray<FVertexInstanceID> vertexInsts;
+	//vertexInsts.SetNum(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
+	FVertexInstanceID instance;
+
+	FVector4f RandomColor = FVector4f(0.0f, 1.0f, 0.0f, 1.0f);
+
+	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
+		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
+			instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
+				x * FTerrainInfo::QuadSize,
+				y * FTerrainInfo::QuadSize,
+				0.f)));
+			MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
+			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
+			MeshDescBuilder.SetInstanceColor(instance, RandomColor);
+			vertexInsts.Add(instance);
+		}
+	}
+
+
+	// Allocate a polygon group
+	FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
+
+
+	int RowCurrent, RowNext;
+	uint8 ChunkSize = FTerrainInfo::ChunkSize + 1;
+	// Add triangles to mesh description
+	for(int y = 0; y < FTerrainInfo::ChunkSize; ++y) {
+		for(int x = 0; x < FTerrainInfo::ChunkSize; ++x) {
+			RowCurrent = x + ChunkSize * y;
+			RowNext = RowCurrent + ChunkSize;
+
+			MeshDescBuilder.AppendTriangle(
+				vertexInsts[RowCurrent],
+				vertexInsts[RowNext],
+				vertexInsts[RowCurrent + 1], PolygonGroup);
+
+
+			MeshDescBuilder.AppendTriangle(
+				vertexInsts[RowCurrent + 1],
+				vertexInsts[RowNext],
+				vertexInsts[RowNext + 1], PolygonGroup);
+
+
+
+		}
+	}
+
+	// At least one material must be added
+	FChunkData load;
+	//load.SectionPos = Section;
+	load.ChunkPos = Chunk;
+	load.Mesh = NewObject<UStaticMesh>();
+	load.Mesh->GetStaticMaterials().Add(FStaticMaterial());
+
+	UStaticMesh::FBuildMeshDescriptionsParams MDParams;
+	MDParams.bBuildSimpleCollision = true;
+	MDParams.bFastBuild = true;
+
+	// Build static mesh
+	TArray<const FMeshDescription*> MeshDescPtrs;
+
+	MeshDescPtrs.Emplace(&MeshDescription);
+	load.Mesh->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
+
+	FScopeLock lock(&ChunkLoadLock);
+
+	StaticMeshLoadAsync.Enqueue(load);
+
+	//UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d Mesh loaded async."), Chunk.X, Chunk.Y);
+
+}
+
+void UTerrainSection::LoadDataFromAsyncLoad() {
+
+	FScopeLock lock(&ChunkLoadLock);
+
+	FChunkData load;
+	StaticMeshLoadAsync.Dequeue(load);
+
+	/*if(load == FAsyncChunkLoad())
+		return;*/
+
+	int SectionLocalDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize * FTerrainInfo::SectionsPerCluster;
+	int ChunkDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize;
+
+	// Create the UStaticMeshComponent, give its name, location and properties
+	FVector SectionLocalPos = FVector(
+		load.ChunkPos.X * ChunkDimension,
+		load.ChunkPos.Y * ChunkDimension,
+		0.0f);
+
+	FString ChunkID = "Chunk ";
+	ChunkID.Append(FString::FromInt(load.ChunkPos.X));
+	ChunkID.Append("-");
+	ChunkID.Append(FString::FromInt(load.ChunkPos.Y));
+
+	// Assign new static mesh to the static mesh component
+
+
+	load.ChunkComponent = NewObject<UStaticMeshComponent>(this, FName(ChunkID));
+	int32 meshID = StaticMesh.Add(load);
+	load.ChunkComponent->SetStaticMesh(load.Mesh);
+	load.ChunkComponent->SetWorldLocation(SectionLocalPos);
+	load.ChunkComponent->Mobility = EComponentMobility::Static;
+	load.ChunkComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	load.ChunkComponent->SetCollisionResponseToAllChannels(ECR_Block);
+	load.ChunkComponent->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
+
+
+	load.ChunkComponent->RegisterComponent();
+
+
+	GetCluster()->AddInstanceComponent(load.ChunkComponent);
+}
+
+void  UTerrainSection::HideOutOfRangeChunks(const FVector2D& SphereCenter, float SphereRadius) {
+	//UE_LOG(LogTemp, Warning, TEXT("Called for section: %dx%d"), SectionBaseX, SectionBaseY);
+
+	FVector2D SquareMin, SquareMax;
+
+	for(int i = 0; i < StaticMesh.Num(); i++) {
+		FInt32Vector2 base = StaticMesh[i].ChunkPos;
+		SquareMin = FVector2D(base.X * FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize,
+							  base.Y * FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize);
+		SquareMax = FVector2D(SquareMin.X + FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize,
+							  SquareMin.Y + FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize);
+		//UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), base.X, base.Y);
+		//UE_LOG(LogTemp, Warning, TEXT("Start: %lfx%lf"), SquareMin.X, SquareMin.Y);
+		//UE_LOG(LogTemp, Warning, TEXT("End:   %lfx%lf"), SquareMax.X, SquareMax.Y);
+
+
+		// Calculate the closest point on the square/rectangle to the center of the sphere
+		float ClosestX = FMath::Clamp(SphereCenter.X, SquareMin.X, SquareMax.X);
+		float ClosestY = FMath::Clamp(SphereCenter.Y, SquareMin.Y, SquareMax.Y);
+		FVector2D ClosestPoint(ClosestX, ClosestY);
+
+		// Check if the distance between the closest point and the center of the sphere is less than or equal to the sphere radius
+		float DistanceSquared = FVector2D::DistSquared(SphereCenter, ClosestPoint);
+		float RadiusSquared = SphereRadius * SphereRadius;
+		if(DistanceSquared <= RadiusSquared)
+			StaticMesh[i].ChunkComponent->SetVisibility(true);
+		else
+			StaticMesh[i].ChunkComponent->SetVisibility(false); // This doesn't actually improve performance
+	}
+
+}
+
+// Synch chunk loaded DEPRECATED
+//void UTerrainSection::CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap) {
+//
+//	SectionBaseX = SectorPos.X;
+//	SectionBaseY = SectorPos.Y;
+//
+//	NumChunks = numSubsections;
+//	ChunkNumQuads = chunkSize - 1;
+//	TotalNumQuads = ChunkNumQuads * (numSubsections ^ 2);
+//
+//	FGuid name = FGuid::NewGuid();
+//	//ChunkMesh = NewObject<UProceduralMeshComponent>(this, FName(name.ToString()));
+//	float SectionLocalDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize * FTerrainInfo::SectionsPerCluster;
+//	float ChunkDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize;
+//
+//	//Static mesh version
+//
+//	for(int ChunkSubsectionY = 0; ChunkSubsectionY < numSubsections; ChunkSubsectionY++) {
+//		for(int ChunkSubsectionX = 0; ChunkSubsectionX < numSubsections; ChunkSubsectionX++) {
+//
+//			// Basically a chunk ID for the loop
+//			int ChunkSubsection = ChunkSubsectionX + ChunkSubsectionY * numSubsections;
+//
+//			// Start of the creation of a static mesh
+//			FMeshDescription MeshDescription;
+//			FStaticMeshAttributes Attributes(MeshDescription);
+//			Attributes.Register();
+//
+//			FMeshDescriptionBuilder MeshDescBuilder;
+//			MeshDescBuilder.SetMeshDescription(&MeshDescription);
+//			MeshDescBuilder.EnablePolyGroups();
+//			MeshDescBuilder.SetNumUVLayers(1);
+//
+//			TArray<FVertexInstanceID> vertexInsts;
+//			//vertexInsts.SetNum(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
+//			FVertexInstanceID instance;
+//
+//			FVector4f RandomColor = FVector4f(0.0f, 1.0f, 0.0f, 1.0f);
+//
+//			for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
+//				for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
+//					instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
+//						x * FTerrainInfo::QuadSize,
+//						y * FTerrainInfo::QuadSize,
+//						FMath::RandRange(0.0f, 50.0f))));
+//					MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
+//					MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
+//					MeshDescBuilder.SetInstanceColor(instance, RandomColor);
+//					vertexInsts.Add(instance);
+//				}
+//			}
+//
+//			// Allocate a polygon group
+//			FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
+//			FStaticMeshOperations::RecomputeNormalsAndTangentsIfNeeded(MeshDescription, EComputeNTBsFlags::Normals);
+//
+//			int RowCurrent, RowNext;
+//			// Add triangles to mesh description
+//			for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
+//				for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
+//					RowCurrent = x + (FTerrainInfo::ChunkSize + 1) * y;
+//					RowNext = RowCurrent + FTerrainInfo::ChunkSize + 1;
+//
+//					FTriangleID triangle = MeshDescBuilder.AppendTriangle(
+//						vertexInsts[RowCurrent],
+//						vertexInsts[RowNext],
+//						vertexInsts[RowCurrent + 1], PolygonGroup);
+//
+//
+//					triangle = MeshDescBuilder.AppendTriangle(
+//						vertexInsts[RowCurrent + 1],
+//						vertexInsts[RowNext],
+//						vertexInsts[RowNext + 1], PolygonGroup);
+//
+//
+//
+//				}
+//			}
+//
+//			// At least one material must be added
+//			StaticMesh.Add(NewObject<UStaticMesh>(this));
+//			StaticMesh[ChunkSubsection]->GetStaticMaterials().Add(FStaticMaterial());
+//
+//			UStaticMesh::FBuildMeshDescriptionsParams MDParams;
+//			MDParams.bBuildSimpleCollision = true;
+//			MDParams.bFastBuild = true;
+//
+//			// Build static mesh
+//			TArray<const FMeshDescription*> MeshDescPtrs;
+//
+//			MeshDescPtrs.Emplace(&MeshDescription);
+//			StaticMesh[ChunkSubsection]->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
+//
+//			// Create the UStaticMeshComponent, give its name, location and properties
+//			FVector SectionLocalPos = FVector(
+//				SectorPos.X * SectionLocalDimension + ChunkSubsectionX * ChunkDimension,
+//				SectorPos.Y * SectionLocalDimension + ChunkSubsectionY * ChunkDimension,
+//				0.0f);
+//
+//			FString ChunkID = "Chunk ";
+//			ChunkID.Append(FString::FromInt(FirstChunkInSector.X + ChunkSubsectionX));
+//			ChunkID.Append("-");
+//			ChunkID.Append(FString::FromInt(FirstChunkInSector.Y + ChunkSubsectionY));
+//
+//			// Assign new static mesh to the static mesh component
+//			ChunkStaticMesh.Add(NewObject<UStaticMeshComponent>(this, FName(ChunkID)));
+//			ChunkStaticMesh[ChunkSubsection]->SetStaticMesh(StaticMesh[ChunkSubsection]);
+//			ChunkStaticMesh[ChunkSubsection]->SetWorldLocation(SectionLocalPos);
+//			ChunkStaticMesh[ChunkSubsection]->Mobility = EComponentMobility::Static;
+//			ChunkStaticMesh[ChunkSubsection]->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+//			ChunkStaticMesh[ChunkSubsection]->SetCollisionResponseToAllChannels(ECR_Block);
+//			ChunkStaticMesh[ChunkSubsection]->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
+//
+//
+//			ChunkStaticMesh[ChunkSubsection]->RegisterComponent();
+//
+//
+//			GetCluster()->AddInstanceComponent(ChunkStaticMesh[ChunkSubsection]);
+//
+//		}
+//	}
+//
+//}
 
 void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap) {
 
 
 	int ChunkPosition = FTerrainInfo::ChunkToSectionPosition(ChunkPos);
 	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, ChunkPosition);
+
+	//Load the reference to the main floot/chunk material.
+	// Assuming you have a variable named "MaterialPath" containing the path of the material you want to load
+	// (e.g. "/Game/MyFolder/MyMaterial.MyMaterial")
+	//FSoftObjectPath MaterialReference("/Script/Engine.Material'/Game/_Game/Floor.Floor'");
+	//UMaterialInterface* Material = Cast<UMaterialInterface>(MaterialReference.TryLoad());
 
 	// Start of the creation of a static mesh
 	FMeshDescription MeshDescription;
@@ -256,12 +568,12 @@ void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const
 			RowNextT = RowCurrentT + FTerrainInfo::ChunkSize + 1;
 
 			TempTriangles.Add(FIntVector(RowCurrentT,
-									  RowNextT,
-									  RowCurrentT + 1));
+										 RowNextT,
+										 RowCurrentT + 1));
 
 			TempTriangles.Add(FIntVector(RowCurrentT + 1,
-									  RowNextT,
-									  RowNextT + 1));
+										 RowNextT,
+										 RowNextT + 1));
 		}
 	}
 
@@ -305,7 +617,7 @@ void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const
 
 	TArray<FVector> tan1, tan2, tangents;
 	TArray<bool> sign;
-	tan1.Init(FVector(0.0f),vertexCount);
+	tan1.Init(FVector(0.0f), vertexCount);
 	tan2.Init(FVector(0.0f), vertexCount);
 	tangents.Reserve(vertexCount);
 	sign.Reserve(vertexCount);
@@ -379,6 +691,8 @@ void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const
 			//MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
 			MeshDescBuilder.SetInstanceNormal(instance, Normals[y * (FTerrainInfo::ChunkSize + 1) + x]);
 			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
+			//MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 1);
+
 			MeshDescBuilder.SetInstanceTangentSpace(instance,
 													Normals[y * (FTerrainInfo::ChunkSize + 1) + x],
 													tangents[y * (FTerrainInfo::ChunkSize + 1) + x],
@@ -418,9 +732,8 @@ void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const
 	}
 
 	// At least one material must be added
-	StaticMesh[ChunkPosition] = NewObject<UStaticMesh>(this);
-	StaticMesh[ChunkPosition]->GetStaticMaterials().Add(FStaticMaterial());
-
+	StaticMesh[ChunkPosition].Mesh = NewObject<UStaticMesh>(this);
+	StaticMesh[ChunkPosition].Mesh->GetStaticMaterials().Add(FStaticMaterial());
 
 	UStaticMesh::FBuildMeshDescriptionsParams MDParams;
 	MDParams.bBuildSimpleCollision = true;
@@ -430,29 +743,61 @@ void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const
 	TArray<const FMeshDescription*> MeshDescPtrs;
 
 	MeshDescPtrs.Emplace(&MeshDescription);
-	StaticMesh[ChunkPosition]->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
+	StaticMesh[ChunkPosition].Mesh->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
 
 	// Build the collision data for the mesh
-	StaticMesh[ChunkPosition]->CreateBodySetup();
-	StaticMesh[ChunkPosition]->ComplexCollisionMesh = StaticMesh[ChunkPosition];
-	StaticMesh[ChunkPosition]->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
-	
-	StaticMesh[ChunkPosition]->GetBodySetup()->InvalidatePhysicsData();
-	StaticMesh[ChunkPosition]->GetBodySetup()->CreatePhysicsMeshes();
-	StaticMesh[ChunkPosition]->MarkPackageDirty();
+	StaticMesh[ChunkPosition].Mesh->CreateBodySetup();
+	StaticMesh[ChunkPosition].Mesh->ComplexCollisionMesh = StaticMesh[ChunkPosition].Mesh;
+	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
 
-	ChunkStaticMesh[ChunkPosition]->SetStaticMesh(StaticMesh[ChunkPosition]);
-	//ChunkStaticMesh[ChunkPosition]->bDrawMeshCollisionIfComplex = true;
-	//ChunkStaticMesh[ChunkPosition]->bDrawMeshCollisionIfSimple = true;
-	ChunkStaticMesh[ChunkPosition]->UpdateCollisionFromStaticMesh();
-	/*ChunkStaticMesh[ChunkPosition]->SetWorldLocation(SectionLocalPos);
-	ChunkStaticMesh[ChunkPosition]->Mobility = EComponentMobility::Static;
-	ChunkStaticMesh[ChunkPosition]->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	ChunkStaticMesh[ChunkPosition]->SetCollisionResponseToAllChannels(ECR_Block);
-	ChunkStaticMesh[ChunkPosition]->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);*/
+	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->InvalidatePhysicsData();
+	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->CreatePhysicsMeshes();
+	StaticMesh[ChunkPosition].Mesh->MarkPackageDirty();
+
+	StaticMesh[ChunkPosition].ChunkComponent->SetStaticMesh(StaticMesh[ChunkPosition].Mesh);
+	StaticMesh[ChunkPosition].ChunkComponent->UpdateCollisionFromStaticMesh();
+
+
+
 
 
 	//ChunkStaticMesh[ChunkPosition]->updatecompone();
+
+}
+
+void UTerrainSection::CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const MArray<uint8>& BiomeMap) {
+
+	int ChunkPosition = FTerrainInfo::ChunkToSectionPosition(ChunkPos);
+	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, ChunkPosition);
+
+	//Load the reference to the main floot/chunk material.
+	// Assuming you have a variable named "MaterialPath" containing the path of the material you want to load
+	// (e.g. "/Game/MyFolder/MyMaterial.MyMaterial")
+	FSoftObjectPath MaterialReference("/Script/Engine.Material'/Game/_Game/Floor.Floor'");
+	UMaterialInterface* Material = Cast<UMaterialInterface>(MaterialReference.TryLoad());
+
+	// Time to create the textures for our chunks, first, check if the root material is loaded properly
+	if(!Material) {
+		// Failed to load the material
+		UE_LOG(LogTemp, Error, TEXT("Fail at loading the floor material!!!"));
+	}
+
+	// The material was successfully loaded, you can now use it
+	// Assuming you have a variable named "Material" containing a reference to your material
+	UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(Material, this);
+	if(DynMaterial) {
+		// The dynamic material instance was successfully created, you can now change its parameters
+		UE_LOG(LogTemp, Warning, TEXT("We got a dynamic material loaded."));
+
+		// Set a scalar parameter value
+		DynMaterial->SetScalarParameterValue("Blend", 0.5f);
+
+		// Set a texture parameter value
+		/*UTexture* TextureParameterValue = LoadObject<UTexture>(nullptr, TEXT("/Script/Engine.Texture2D'/Game/_Game/931998321.931998321'"));
+		DynMaterial->SetTextureParameterValue("TextureBase", TextureParameterValue);*/
+
+		StaticMesh[ChunkPosition].ChunkComponent->SetOverlayMaterial(DynMaterial);
+	}
 
 }
 
@@ -467,11 +812,11 @@ void UTerrainSection::GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& Hei
 	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, pos);
 
 	//if(!IsValidLowLevel()) return;
-	if(!StaticMesh[pos]) return;
-	if(!StaticMesh[pos]->GetRenderData()) return;
+	if(!StaticMesh[pos].Mesh) return;
+	if(!StaticMesh[pos].Mesh->GetRenderData()) return;
 
 	// Get the vertex buffer from the static mesh
-	FStaticMeshVertexBuffers& VertexBuffers = StaticMesh[pos]->GetRenderData()->LODResources[0].VertexBuffers;
+	FStaticMeshVertexBuffers& VertexBuffers = StaticMesh[pos].Mesh->GetRenderData()->LODResources[0].VertexBuffers;
 	FPositionVertexBuffer* Vertices = &VertexBuffers.PositionVertexBuffer;
 
 	if(!Vertices) {

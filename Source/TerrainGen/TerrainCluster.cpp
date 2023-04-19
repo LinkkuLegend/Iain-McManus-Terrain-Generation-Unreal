@@ -14,6 +14,7 @@ void ATerrainCluster::MakeMobilityStatic() {
 	RootComponent->Mobility = EComponentMobility::Static;
 }
 
+// UNUSED because of redoing of code
 void ATerrainCluster::LoadChunk(FInt32Vector2 chunk, uint8 sectionsPerCluster) {
 	FInt32Vector2 SectorPosition, ClusterPosition;
 	FTerrainInfo::ChunkToSectionAndCluster(chunk, SectorPosition, ClusterPosition);
@@ -28,7 +29,7 @@ void ATerrainCluster::LoadChunk(FInt32Vector2 chunk, uint8 sectionsPerCluster) {
 
 			//UTerrainSection* Section = CreateDefaultSubobject<UTerrainSection>(FName(SectorID));
 			UTerrainSection* TerrainSection = NewObject<UTerrainSection>(this);
-			
+
 			float SectionLocalDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize * FTerrainInfo::SectionsPerCluster;
 			FVector SectionLocalPos = FVector(
 				x * SectionLocalDimension,
@@ -36,8 +37,33 @@ void ATerrainCluster::LoadChunk(FInt32Vector2 chunk, uint8 sectionsPerCluster) {
 				0.0f);
 			TerrainSection->AddLocalOffset(SectionLocalPos);
 			UE_LOG(LogTemp, Warning, TEXT("Passing Chunk: %dx%d"), chunk.X, chunk.Y);
-			TerrainSection->CreateSection(FInt32Vector2(SectorPosition.X + x, SectorPosition.Y + y), FInt32Vector2(chunk.X + x * sectionsPerCluster, chunk.Y + y * sectionsPerCluster),sectionsPerCluster, 64, nullptr);
+			//TerrainSection->CreateSection(FInt32Vector2(SectorPosition.X + x, SectorPosition.Y + y), FInt32Vector2(chunk.X + x * sectionsPerCluster, chunk.Y + y * sectionsPerCluster), sectionsPerCluster, 64, nullptr);
 			TerrainSections.Add(TerrainSection);
+		}
+	}
+}
+
+void ATerrainCluster::LoadAllChunksInCluster() {
+	// ClusterPosition;
+	//FTerrainInfo::ChunkToSectionAndCluster(chunk, SectorPosition, ClusterPosition);
+
+	FInt32Vector2 SectorInitialPosition = FInt32Vector2(ClusterBaseX * FTerrainInfo::SectionsPerCluster, ClusterBaseY * FTerrainInfo::SectionsPerCluster);
+
+	for(int y = 0; y < FTerrainInfo::SectionsPerCluster; y++) {
+		for(int x = 0; x < FTerrainInfo::SectionsPerCluster; x++) {
+			UTerrainSection* TerrainSection = NewObject<UTerrainSection>(this);
+
+			float SectionLocalDimension = FTerrainInfo::ChunkSize * FTerrainInfo::QuadSize * FTerrainInfo::SectionsPerCluster;
+			FVector SectionLocalPos = FVector(
+				x * SectionLocalDimension,
+				y * SectionLocalDimension,
+				0.0f);
+			TerrainSection->AddLocalOffset(SectionLocalPos);
+
+			//TerrainSection->CreateSection(FInt32Vector2(SectorPosition.X + x, SectorPosition.Y + y), FInt32Vector2(chunk.X + x * sectionsPerCluster, chunk.Y + y * sectionsPerCluster), sectionsPerCluster, 64, nullptr);
+
+			TerrainSection->LoadSection(FInt32Vector2(SectorInitialPosition.X + x, SectorInitialPosition.Y + y), nullptr);
+			TerrainSections.Add(TerrainSection); 
 		}
 	}
 }
@@ -52,6 +78,11 @@ bool ATerrainCluster::IsChunkLoaded(FInt32Vector2 chunk) {
 		if(Sector->IsSectorLoaded(SectorPosition))
 			return true;
 	return false;
+}
+
+void  ATerrainCluster::HideOutOfRangeChunks(const FVector2D& SphereCenter, float SphereRadius) {
+	for(UTerrainSection* Sector : TerrainSections)
+		Sector->HideOutOfRangeChunks(SphereCenter, SphereRadius);
 }
 
 ATerrain* ATerrainCluster::GetTerrain() const {

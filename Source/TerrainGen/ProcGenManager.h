@@ -27,17 +27,15 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-
-
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
-	TArray<FVector> Vertices;
+	//UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
+	//TArray<FVector> Vertices;
 
-	UPROPERTY(EditAnywhere)
-	TArray<int> Triangles;
+	//UPROPERTY(EditAnywhere)
+	//TArray<int> Triangles;
 
 
 private:
@@ -48,8 +46,8 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
 		class ATerrain* TargetTerrain;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
-		class UProceduralMeshComponent* TestTerrain;
+	/*UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
+		class UProceduralMeshComponent* TestTerrain;*/
 
 	UFUNCTION(BlueprintCallable)
 		void RegenerateTerrain();
@@ -59,7 +57,7 @@ private:
 	void PerformBiomeGeneration_HighRes(uint16 lowResMapResolution, uint32 targetResolution);
 
 	UFUNCTION(BlueprintCallable)
-	void Perform_HeightMapModification(int32 targetResolution);
+		void Perform_HeightMapModification(int32 targetResolution);
 
 	void PerformSpawnIndividualBiome(short BiomeIndex, uint16 HeightmapResolution);
 
@@ -71,13 +69,13 @@ private:
 
 	uint8 CalculateHighResBiomeIndex(uint16 lowResMapSize, uint32 lowResX, uint32 lowResY, uint32 HighResX, uint32 HighResY);
 
-	// Terrain Generation
-	void GenerateTile();
-
-
+	// Terrain Generation OBSOLETE
+	/*void GenerateTile();*/
 
 
 #pragma region "Mapgen Variables"
+
+private:
 
 	MArray <uint8> BiomeMap_LowRes;
 	MArray <float> BiomeStrengths_LowRes;
@@ -96,10 +94,21 @@ private:
 
 #pragma endregion
 
+#pragma region "Texturing"
+
+private:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Texturing", meta = (AllowPrivateAccess = "true"))
+		bool RegenerateLayers = true;
+
+	void Perform_LayerSetup();
+
+#pragma endregion
+
 public:
 	UFUNCTION(BlueprintImplementableEvent)
 		void BiomeImageToDisk(UTexture2D* texture, const FString& filename);
 
-	
+
 
 };

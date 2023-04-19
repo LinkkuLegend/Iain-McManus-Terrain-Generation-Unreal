@@ -6,6 +6,8 @@
 #include "TerrainSection.h"
 #include <TerrainGen/UtilsArray.h>
 
+#include "Async/Async.h"
+
 #include "Math/NumericLimits.h"
 #include "Math/Vector.h"
 #include "Math/Vector4.h"
@@ -13,7 +15,7 @@
 
 // Sets default values
 ATerrain::ATerrain() :
-	VisionRange(1)
+	VisionRange(16)
 	/*	SectionsPerCluster(2),
 		ChunksPerSection(2),
 		ChunkSize(64),
@@ -21,6 +23,8 @@ ATerrain::ATerrain() :
 		// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	Initialize();
+
+
 }
 
 //// Called when the game starts or when spawned
@@ -43,39 +47,91 @@ void ATerrain::Initialize() {
 	Reset();
 }
 
-void ATerrain::UpdateTerrain(FVector PlayerPosition) {
+void ATerrain::UpdateTerrain(const FVector PlayerPosition) {
 
-	Reset();
+	UE_LOG(LogTemp, Warning, TEXT("Player location: %fx%fx%f"), PlayerPosition.X, PlayerPosition.Y, PlayerPosition.Z);
 
-
-	FInt32Vector2 sector, cluster;
-	FTerrainInfo::ChunkToSectionAndCluster(FInt32Vector2(-3, 1), sector, cluster);
-	UE_LOG(LogTemp, Warning, TEXT("Chunk -3 x 1: Sector: %d x %d Cluster: %d x %d"), sector.X, sector.Y, cluster.X, cluster.Y);
+	int initialChunkX = FMath::FloorToInt(PlayerPosition.X / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize);
+	int initialChunkY = FMath::FloorToInt(PlayerPosition.Y / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize);
 
 
-	/*UE_LOG(LogTemp, Warning, TEXT("Position: %f     %f     %f"), PlayerPosition.X, PlayerPosition.Y, PlayerPosition.Z);
+	/*FInt32Vector2 SectorPosition, ClusterPosition;
+	FTerrainInfo::ChunkToSectionAndCluster(FInt32Vector2(initialChunkX, initialChunkX), SectorPosition, ClusterPosition);*/
 
-	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), FMath::FloorToInt(PlayerPosition.X / QuadSize / ChunkSize), FMath::FloorToInt(PlayerPosition.Y / QuadSize / ChunkSize));
-	UE_LOG(LogTemp, Warning, TEXT("Section: %dx%d"), FMath::FloorToInt(PlayerPosition.X / QuadSize / ChunkSize / ChunksPerSection), FMath::FloorToInt(PlayerPosition.Y / QuadSize / ChunkSize / ChunksPerSection));
-	UE_LOG(LogTemp, Warning, TEXT("Cluster: %dx%d"), FMath::FloorToInt(PlayerPosition.X / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster), FMath::FloorToInt(PlayerPosition.Y / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster));*/
+	// The idea is to use the VisionRange to calcule the area of chunks we need, so that way we can calculate which Clusters are involved
+	//				  ----* <- FinalChunk	
+	//				  |   |
+	// InitialChunk-> *----	
+	FInt32Vector2 SWChunk = FInt32Vector2(initialChunkX - VisionRange + 1, initialChunkY - VisionRange + 1);
+	FInt32Vector2 NEChunk = FInt32Vector2(initialChunkX + VisionRange - 1, initialChunkY + VisionRange - 1);
 
-	FVector startPosition = FVector(1, 1, 0);
+	UE_LOG(LogTemp, Warning, TEXT("InitialChunkX: %d, InitialChunkY: %d"), initialChunkX, initialChunkY);
+	UE_LOG(LogTemp, Warning, TEXT("SWChunk: %d, SWChunk: %d"), SWChunk.X, SWChunk.Y);
+	UE_LOG(LogTemp, Warning, TEXT("NEChunk: %d, NEChunk: %d"), NEChunk.X, NEChunk.Y);
 
-	int NumOfChunksRow = FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection * VisionRange;
-	int initialChunkX = FMath::FloorToInt(startPosition.X / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
-	int initialChunkY = FMath::FloorToInt(startPosition.Y / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
-	UE_LOG(LogTemp, Warning, TEXT("initialChunkX %d initialChunkY %d"), initialChunkX, initialChunkY);
-	for(int x = initialChunkX; x < initialChunkX + NumOfChunksRow; x++) {
-		for(int y = initialChunkY; y < initialChunkY + NumOfChunksRow; y++) {
-			if(IsChunkLoaded(FInt32Vector2(x, y))) {
-				UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is loaded."), x, y);
-			} else {
-				UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is not loaded."), x, y);
-				LoadChunk(FInt32Vector2(x, y));
-				//return;
-			}
+	FInt32Vector2 SWSectorPosition, SWClusterPosition;
+	FTerrainInfo::ChunkToSectionAndCluster(SWChunk, SWSectorPosition, SWClusterPosition);
+
+	FInt32Vector2 NESectorPosition, NEClusterPosition;
+	FTerrainInfo::ChunkToSectionAndCluster(NEChunk, NESectorPosition, NEClusterPosition);
+
+	UE_LOG(LogTemp, Warning, TEXT("SWCluster: %d, SWCluster: %d"), SWClusterPosition.X, SWClusterPosition.Y);
+	UE_LOG(LogTemp, Warning, TEXT("NECluster: %d, NECluster: %d"), NEClusterPosition.X, NEClusterPosition.Y);
+
+	TArray< FInt32Vector2> ClustersNeededToLoad;
+
+	for(int i = SWClusterPosition.X; i < NEClusterPosition.X + 1; i++) {
+		for(int j = SWClusterPosition.Y; j < NEClusterPosition.Y + 1; j++) {
+			UE_LOG(LogTemp, Warning, TEXT("Need to load Cluster %dx%d"), i, j);
+			ClustersNeededToLoad.Add(FInt32Vector2(i, j));
+			LoadClusterAsync(FInt32Vector2(i, j));
 		}
 	}
+
+
+	//Now we are gonna save and unload out-of-range Clusters
+	TArray< ATerrainCluster*> ClusterToSaveAndDestroy;
+	for(ATerrainCluster* Cluster : TerrainClusters) {
+		bool ContainsCluster = false;
+		for(FInt32Vector2 ClusterToLoad : ClustersNeededToLoad) {
+			if(Cluster->GetClusterBase().X == ClusterToLoad.X &&
+			   Cluster->GetClusterBase().Y == ClusterToLoad.Y)
+				ContainsCluster = true;
+		}
+		if(!ContainsCluster) {
+			UE_LOG(LogTemp, Warning, TEXT("We are gonna destroy Cluster: %dx%d"), Cluster->GetClusterBase().X, Cluster->GetClusterBase().Y);
+			Cluster->Destroy();
+			ClusterToSaveAndDestroy.Add(Cluster);
+		}
+	}
+
+	// And remove the pointer from the array
+	for(ATerrainCluster* ClusterToRemove : ClusterToSaveAndDestroy) {
+		TerrainClusters.Remove(ClusterToRemove);
+	}
+
+	HideOutOfRangeChunks(FVector2D(PlayerPosition.X, PlayerPosition.Y), GetVisionRadius());
+
+	UE_LOG(LogTemp, Warning, TEXT("Cluster in array: %d"), TerrainClusters.Num());
+
+	//int NumOfChunksRow = FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection * VisionRange;
+	//int initialChunkX = FMath::FloorToInt(PlayerPosition.X / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
+	//int initialChunkY = FMath::FloorToInt(PlayerPosition.Y / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
+	//UE_LOG(LogTemp, Warning, TEXT("InitialChunkX: %d, InitialChunkY: %d, NumOfChunksRow: %d"), initialChunkX, initialChunkY, NumOfChunksRow);
+	//for(int x = initialChunkX - NumOfChunksRow; x < initialChunkX + NumOfChunksRow; x++) {
+	//	for(int y = initialChunkY - NumOfChunksRow; y < initialChunkY + NumOfChunksRow; y++) {
+	//		if(IsChunkLoaded(FInt32Vector2(x, y))) {
+	//			UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is loaded."), x, y);
+	//		} else {
+	//			UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is not loaded."), x, y);
+	//			//LoadChunk(FInt32Vector2(x, y));
+
+	//			//return;
+	//		}
+	//	}
+	//}
+
+
 
 	//DebugPrintLoadedChunks();
 
@@ -84,12 +140,111 @@ void ATerrain::UpdateTerrain(FVector PlayerPosition) {
 		UE_LOG(LogTemp, Warning, TEXT("Cluster grid: %d x %d"), Cluster->GetClusterBase().X, Cluster->GetClusterBase().Y);
 		UE_LOG(LogTemp, Warning, TEXT("Cluster world: %lf x %lf"), clusterLocation.X, clusterLocation.Y);
 	}*/
-	for(ATerrainCluster* Cluster : TerrainClusters)
+
+	/*for(ATerrainCluster* Cluster : TerrainClusters)
 		for(UTerrainSection* Section : Cluster->TerrainSections) {
 			FVector sectionLocation = Section->GetComponentTransform().GetLocation();
 			UE_LOG(LogTemp, Warning, TEXT("Section grid: %d x %d"), Section->GetSectionBase().X, Section->GetSectionBase().Y);
 			UE_LOG(LogTemp, Warning, TEXT("Section world: %lf x %lf"), sectionLocation.X, sectionLocation.Y);
-		}
+		}*/
+}
+
+//void ATerrain::UpdateTerrain(FVector PlayerPosition) {
+//
+//	//Reset();
+//
+//	/*FInt32Vector2 sector, cluster;
+//	FTerrainInfo::ChunkToSectionAndCluster(FInt32Vector2(-3, 1), sector, cluster);
+//	UE_LOG(LogTemp, Warning, TEXT("Chunk -3 x 1: Sector: %d x %d Cluster: %d x %d"), sector.X, sector.Y, cluster.X, cluster.Y);
+//*/
+//
+//	/*UE_LOG(LogTemp, Warning, TEXT("Position: %f     %f     %f"), PlayerPosition.X, PlayerPosition.Y, PlayerPosition.Z);
+//
+//	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), FMath::FloorToInt(PlayerPosition.X / QuadSize / ChunkSize), FMath::FloorToInt(PlayerPosition.Y / QuadSize / ChunkSize));
+//	UE_LOG(LogTemp, Warning, TEXT("Section: %dx%d"), FMath::FloorToInt(PlayerPosition.X / QuadSize / ChunkSize / ChunksPerSection), FMath::FloorToInt(PlayerPosition.Y / QuadSize / ChunkSize / ChunksPerSection));
+//	UE_LOG(LogTemp, Warning, TEXT("Cluster: %dx%d"), FMath::FloorToInt(PlayerPosition.X / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster), FMath::FloorToInt(PlayerPosition.Y / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster));*/
+//
+//	//FVector startPosition = FVector(1, 1, 0);
+//	FVector startPosition = PlayerPosition;
+//
+//	int NumOfChunksRow = FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection * VisionRange;
+//	int initialChunkX = FMath::FloorToInt(startPosition.X / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
+//	int initialChunkY = FMath::FloorToInt(startPosition.Y / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
+//	UE_LOG(LogTemp, Warning, TEXT("InitialChunkX: %d, InitialChunkY: %d, NumOfChunksRow: %d"), initialChunkX, initialChunkY, NumOfChunksRow);
+//	for(int x = initialChunkX - NumOfChunksRow; x < initialChunkX + NumOfChunksRow; x++) {
+//		for(int y = initialChunkY - NumOfChunksRow; y < initialChunkY + NumOfChunksRow; y++) {
+//			if(IsChunkLoaded(FInt32Vector2(x, y))) {
+//				UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is loaded."), x, y);
+//			} else {
+//				UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is not loaded."), x, y);
+//					LoadChunk(FInt32Vector2(x, y));
+//				
+//				//return;
+//			}
+//		}
+//	}
+//
+//	//DebugPrintLoadedChunks();
+//
+//	/*for(ATerrainCluster* Cluster : TerrainClusters) {
+//		UE::Math::TVector<double> clusterLocation = Cluster->GetTransform().GetLocation();
+//		UE_LOG(LogTemp, Warning, TEXT("Cluster grid: %d x %d"), Cluster->GetClusterBase().X, Cluster->GetClusterBase().Y);
+//		UE_LOG(LogTemp, Warning, TEXT("Cluster world: %lf x %lf"), clusterLocation.X, clusterLocation.Y);
+//	}*/
+//
+//	/*for(ATerrainCluster* Cluster : TerrainClusters)
+//		for(UTerrainSection* Section : Cluster->TerrainSections) {
+//			FVector sectionLocation = Section->GetComponentTransform().GetLocation();
+//			UE_LOG(LogTemp, Warning, TEXT("Section grid: %d x %d"), Section->GetSectionBase().X, Section->GetSectionBase().Y);
+//			UE_LOG(LogTemp, Warning, TEXT("Section world: %lf x %lf"), sectionLocation.X, sectionLocation.Y);
+//		}*/
+//}
+
+void ATerrain::LoadClusterAsync(FInt32Vector2 cluster) {
+
+	// First we are gonna check it doesn't already exists
+	if(IsClusterLoaded(cluster))
+		return;
+
+	// Name of the cluster for the editor
+	FString ClusterID = "TerrainCluster ";
+	ClusterID.Append(FString::FromInt(cluster.X));
+	ClusterID.Append(" / ");
+	ClusterID.Append(FString::FromInt(cluster.Y));
+
+	// Total dimension of the cluster in one of the axis (it is mean to be square)
+	float ClusterWorldDimension =
+		FTerrainInfo::ChunkSize *
+		FTerrainInfo::QuadSize *
+		FTerrainInfo::ChunksPerSection *
+		FTerrainInfo::SectionsPerCluster;
+
+	// Final location of the cluster in the world
+	FVector Location(ClusterWorldDimension * cluster.X, ClusterWorldDimension * cluster.Y, 0.0f);
+	FRotator Rotation(0.0f, 0.0f, 0.0f);
+
+	// For the object construction, we need a owner, so lets say it is this object
+	FActorSpawnParameters SpawnInfo;
+	SpawnInfo.Owner = this;
+
+
+
+	ATerrainCluster* NewCluster = GetWorld()->SpawnActor<ATerrainCluster>(Location, Rotation, SpawnInfo);
+	//NewCluster->SetRootComponent(this);
+	NewCluster->SetActorLabel(ClusterID);
+
+	FAttachmentTransformRules rules = FAttachmentTransformRules(EAttachmentRule::KeepWorld, false);
+	//NewCluster->AttachToActor(this, rules);
+	NewCluster->MakeMobilityStatic();
+
+	NewCluster->SetClusterBase(cluster);
+
+	NewCluster->LoadAllChunksInCluster();
+
+	TerrainClusters.Add(NewCluster);
+
+	UE_LOG(LogTemp, Warning, TEXT("Cluster data generated."));
+
 }
 
 void ATerrain::LoadChunk(FInt32Vector2 chunk) {
@@ -149,6 +304,11 @@ void ATerrain::LoadChunk(FInt32Vector2 chunk) {
 
 }
 
+void ATerrain::HideOutOfRangeChunks(const FVector2D& PlayerLocation, float VisionRangeRadius) {
+	for(ATerrainCluster* Cluster : TerrainClusters)
+		Cluster->HideOutOfRangeChunks(PlayerLocation, VisionRangeRadius);
+}
+
 ATerrainCluster* ATerrain::GetClusterByChunk(FInt32Vector2 chunk) {
 	FInt32Vector2 SectorPosition, ClusterPosition;
 	FTerrainInfo::ChunkToSectionAndCluster(chunk, SectorPosition, ClusterPosition);
@@ -184,11 +344,9 @@ UTerrainSection* ATerrain::GetSectionByChunk(FInt32Vector2 chunk) {
 
 bool ATerrain::IsClusterLoaded(FInt32Vector2 cluster) {
 	//UE_LOG(LogTemp, Warning, TEXT("There are %d clusters active."), TerrainClusters.Num());
-	for(ATerrainCluster* TerrainCluster : TerrainClusters) {
+	for(ATerrainCluster* TerrainCluster : TerrainClusters)
 		if(TerrainCluster->GetClusterBase() == cluster)
 			return true;
-	}
-
 	return false;
 }
 
@@ -294,7 +452,7 @@ void ATerrain::Reset() {
 		Actor->Destroy();
 	}
 
-	
+
 
 }
 
@@ -327,6 +485,7 @@ void ATerrain::GetHeights(int ChunkPosX, int ChunkPosY, int NumChunksX, int NumC
 
 /*
 * This function is for populate whole Chunks, not fine refinement.
+* ChunkPosX and ChunkPosY are the starting Chunks, HeightMap are meant to contain more than one chunk
 */
 void ATerrain::SetHeights(int ChunkPosX, int ChunkPosY, const MArray<float>& HeightMap) {
 
@@ -350,10 +509,10 @@ void ATerrain::SetHeights(int ChunkPosX, int ChunkPosY, const MArray<float>& Hei
 			UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), y, x);
 			UE_LOG(LogTemp, Warning, TEXT("Array Position X: %dx%d"), (x - ChunkPosX) * FTerrainInfo::ChunkSize, ((x - ChunkPosX) + 1) * FTerrainInfo::ChunkSize);
 			UE_LOG(LogTemp, Warning, TEXT("Array Position Y: %dx%d"), (y - ChunkPosY) * FTerrainInfo::ChunkSize, ((y - ChunkPosY) + 1) * FTerrainInfo::ChunkSize);
-			ChunkHeightMap = HeightMap.getArea((x - ChunkPosX) * FTerrainInfo::ChunkSize, 
-															 (y - ChunkPosY) * FTerrainInfo::ChunkSize,
-															 FTerrainInfo::ChunkSize,
-															 FTerrainInfo::ChunkSize);
+			ChunkHeightMap = HeightMap.getArea((x - ChunkPosX) * FTerrainInfo::ChunkSize,
+											   (y - ChunkPosY) * FTerrainInfo::ChunkSize,
+											   FTerrainInfo::ChunkSize,
+											   FTerrainInfo::ChunkSize);
 			//ChunkHeightMap.PrintInfo();
 
 			UTerrainSection* section = GetSectionByChunk(FInt32Vector2(x, y));
@@ -367,4 +526,52 @@ void ATerrain::SetHeights(int ChunkPosX, int ChunkPosY, const MArray<float>& Hei
 
 	//ChunkHeightMap.PrintContent();
 
+}
+
+/*
+* This function is for populate whole Chunks, not fine refinement.
+* ChunkPosX and ChunkPosY are the starting Chunks, HeightMap are meant to contain more than one chunk
+*/
+void ATerrain::SetTextures(int ChunkPosX, int ChunkPosY, const MArray<uint8>& BiomeMap) {
+
+	FUintVector2 HeightMapSize = BiomeMap.GetArraySize();
+
+	//Checks in case there is something wrong with HeightMap
+	check(HeightMapSize.X > FTerrainInfo::ChunkSize); // Check if there is a minimum of one chunk in X
+	check(HeightMapSize.Y > FTerrainInfo::ChunkSize); // Check if there is a minimum of one chunk in Y
+	check(HeightMapSize.X % FTerrainInfo::ChunkSize == 1); // Check if the columns have the correct size to be able to contain a Chunk
+	check(HeightMapSize.Y % FTerrainInfo::ChunkSize == 1); // Check if the rows    have the correct size to be able to contain a Chunk
+
+	/*UE_LOG(LogTemp, Warning, TEXT("Columns: %d, ChunkSize: %d Rest: %d"), HeightMapSize.X, FTerrainInfo::ChunkSize, HeightMapSize.X % FTerrainInfo::ChunkSize);
+	UE_LOG(LogTemp, Warning, TEXT("Rows: %d, ChunkSize: %d Rest: %d"), HeightMapSize.Y, FTerrainInfo::ChunkSize, HeightMapSize.Y % FTerrainInfo::ChunkSize);*/
+	int NumChunksX = HeightMapSize.X / FTerrainInfo::ChunkSize;
+	int NumChunksY = HeightMapSize.Y / FTerrainInfo::ChunkSize;
+	MArray<uint8> ChunkTexturesMap;
+	for(int y = ChunkPosY; y < ChunkPosY + NumChunksY; y++) {
+		for(int x = ChunkPosX; x < ChunkPosX + NumChunksX; x++) {
+			UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), y, x);
+			UE_LOG(LogTemp, Warning, TEXT("Array Position X: %dx%d"), (x - ChunkPosX) * FTerrainInfo::ChunkSize, ((x - ChunkPosX) + 1) * FTerrainInfo::ChunkSize);
+			UE_LOG(LogTemp, Warning, TEXT("Array Position Y: %dx%d"), (y - ChunkPosY) * FTerrainInfo::ChunkSize, ((y - ChunkPosY) + 1) * FTerrainInfo::ChunkSize);
+			ChunkTexturesMap = BiomeMap.getArea((x - ChunkPosX) * FTerrainInfo::ChunkSize,
+												(y - ChunkPosY) * FTerrainInfo::ChunkSize,
+												FTerrainInfo::ChunkSize,
+												FTerrainInfo::ChunkSize);
+			//ChunkHeightMap.PrintInfo();
+
+			UTerrainSection* section = GetSectionByChunk(FInt32Vector2(x, y));
+
+			if(section == nullptr)
+				continue;
+
+			section->CreateMaterialsFromBiomeMap(FInt32Vector2(x, y), ChunkTexturesMap);
+		}
+	}
+
+	//ChunkHeightMap.PrintContent();
+
+}
+
+
+int ATerrain::GetVisionRadius() {
+	return VisionRange * FTerrainInfo::QuadSize * FTerrainInfo::ChunkSize / 2;
 }
