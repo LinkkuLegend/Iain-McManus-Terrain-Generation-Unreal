@@ -6,7 +6,9 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h"
 #include "Terrain.h"
+#include <TerrainGen/WorldTerrainGen.h>
 #include "WorldGenManager.generated.h"
+
 
 UCLASS()
 class TERRAINGEN_API AWorldGenManager : public AActor {
@@ -28,6 +30,10 @@ private:
 
 	float LastTimeExecuted;
 
+	WorldTerrainGen TerrainGen;
+
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -35,5 +41,36 @@ protected:
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+
+#pragma region "Perlin noise Editor Debug"
+private:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		FIntPoint DebugCluster;
+
+	// Editor Function
+	UFUNCTION(BlueprintCallable, Category = "Perlin Debug")
+		void GenerateHeightMapByClusterEditor();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* Continentalness;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UCurveFloat* ContinentalnessCurve;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* Erosion;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* PeaksAndValleys;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* Temperature;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* Humidity;
+
+#pragma endregion
 
 };

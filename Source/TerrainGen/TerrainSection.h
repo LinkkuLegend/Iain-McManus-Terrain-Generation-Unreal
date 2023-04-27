@@ -97,11 +97,11 @@ public:
 
 	//DEPRECATED
 	//void CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap);
-	void LoadSection(FInt32Vector2 SectionPos, UTexture2D* heightMap);
+	void LoadSection(FInt32Vector2 SectionPos, const MArray<float>& HeightMap);
 
 	void CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap);
 
-	void LoadChunkAsync(FInt32Vector2 ChunkSubsection, FInt32Vector2 Section);
+	void LoadChunkAsync(FInt32Vector2 ChunkSubsection, FInt32Vector2 Section, const MArray<float>& HeightMap);
 
 	void CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const MArray<uint8>& BiomeMap);
 

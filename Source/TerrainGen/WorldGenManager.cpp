@@ -49,6 +49,17 @@ void AWorldGenManager::BeginPlay(){
 	LastTimeExecuted = GetWorld()->GetTimeSeconds(); // Initialize the last time the code was executed to the current time
 }
 
+void AWorldGenManager::GenerateHeightMapByClusterEditor() {
+	UE_LOG(LogTemp, Warning, TEXT("Generating Height Map at debug cluster: %dx%d"), DebugCluster.X, DebugCluster.Y);
+
+	FDateTime StartTime = FDateTime::Now();
+	Continentalness = TerrainGen.GenerateClusterTexture(DebugCluster);
+	FDateTime EndTime = FDateTime::Now();
+	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
+	UE_LOG(LogTemp, Warning, TEXT("MyFunction took %f ms"), Duration);
+
+}
+
 // Called every frame
 void AWorldGenManager::Tick(float DeltaTime){
 	Super::Tick(DeltaTime);

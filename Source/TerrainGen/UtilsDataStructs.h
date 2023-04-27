@@ -141,6 +141,11 @@ public:
 		return AreaArray;
 	}
 
+	SIZE_T GetResourceSizeBytes() {
+		SIZE_T SizeInBytes = (MultArray.Num() * sizeof(T)) + (sizeof(uint32) * 2);
+		return SizeInBytes;
+	}
+
 private:
 
 	int getIndex(int x, int y) const {

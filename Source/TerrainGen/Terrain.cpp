@@ -5,6 +5,7 @@
 #include "TerrainCluster.h"
 #include "TerrainSection.h"
 #include <TerrainGen/UtilsArray.h>
+#include "WorldTerrainGen.h"
 
 #include "Async/Async.h"
 
@@ -23,8 +24,6 @@ ATerrain::ATerrain() :
 		// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	Initialize();
-
-
 }
 
 //// Called when the game starts or when spawned
@@ -48,6 +47,8 @@ void ATerrain::Initialize() {
 }
 
 void ATerrain::UpdateTerrain(const FVector PlayerPosition) {
+
+	FDateTime StartTime = FDateTime::Now();
 
 	UE_LOG(LogTemp, Warning, TEXT("Player location: %fx%fx%f"), PlayerPosition.X, PlayerPosition.Y, PlayerPosition.Z);
 
@@ -80,12 +81,24 @@ void ATerrain::UpdateTerrain(const FVector PlayerPosition) {
 
 	TArray< FInt32Vector2> ClustersNeededToLoad;
 
-	for(int i = SWClusterPosition.X; i < NEClusterPosition.X + 1; i++) {
+	/*for(int i = SWClusterPosition.X; i < NEClusterPosition.X + 1; i++) {
 		for(int j = SWClusterPosition.Y; j < NEClusterPosition.Y + 1; j++) {
 			UE_LOG(LogTemp, Warning, TEXT("Need to load Cluster %dx%d"), i, j);
 			ClustersNeededToLoad.Add(FInt32Vector2(i, j));
 			LoadClusterAsync(FInt32Vector2(i, j));
 		}
+	}*/
+
+	TArray<FInt32Vector2> TestSpiral;
+	PopulateArrayInSpiralOrder(SWClusterPosition, NEClusterPosition, TestSpiral);
+
+	while(!TestSpiral.IsEmpty()) {
+		FInt32Vector2 ClusterSpiral;
+		ClusterSpiral = TestSpiral.Pop(false);
+
+		UE_LOG(LogTemp, Warning, TEXT("Need to load Cluster %dx%d"), ClusterSpiral.X, ClusterSpiral.Y);
+		ClustersNeededToLoad.Add(ClusterSpiral);
+		LoadClusterAsync(ClusterSpiral);
 	}
 
 
@@ -113,6 +126,10 @@ void ATerrain::UpdateTerrain(const FVector PlayerPosition) {
 	HideOutOfRangeChunks(FVector2D(PlayerPosition.X, PlayerPosition.Y), GetVisionRadius());
 
 	UE_LOG(LogTemp, Warning, TEXT("Cluster in array: %d"), TerrainClusters.Num());
+
+	FDateTime EndTime = FDateTime::Now();
+	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
+	UE_LOG(LogTemp, Warning, TEXT("Update took: %f ms"), Duration);
 
 	//int NumOfChunksRow = FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection * VisionRange;
 	//int initialChunkX = FMath::FloorToInt(PlayerPosition.X / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
@@ -239,6 +256,8 @@ void ATerrain::LoadClusterAsync(FInt32Vector2 cluster) {
 
 	NewCluster->SetClusterBase(cluster);
 
+	NewCluster->SetClusterHeightMap(WorldTerrainGen::PerlinTerrainGen(FIntPoint(cluster.X, cluster.Y)));
+
 	NewCluster->LoadAllChunksInCluster();
 
 	TerrainClusters.Add(NewCluster);
@@ -247,66 +266,109 @@ void ATerrain::LoadClusterAsync(FInt32Vector2 cluster) {
 
 }
 
-void ATerrain::LoadChunk(FInt32Vector2 chunk) {
-	// Position of the cluster relative to the center of the world
-	//FInt32Vector2 Position = FInt32Vector2(FMath::FloorToInt(chunk.X / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster), FMath::FloorToInt(chunk.Y / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster));
-	FInt32Vector2 SectorPosition, ClusterPosition;
-	//Check first if it is already loaded
-	FTerrainInfo::ChunkToSectionAndCluster(chunk, SectorPosition, ClusterPosition);
-
-	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), chunk.X, chunk.Y);
-	UE_LOG(LogTemp, Warning, TEXT("Section: %dx%d"), SectorPosition.X, SectorPosition.Y);
-	UE_LOG(LogTemp, Warning, TEXT("Cluster: %dx%d"), ClusterPosition.X, ClusterPosition.Y);
-	UE_LOG(LogTemp, Warning, TEXT(" "));
-
-	if(IsClusterLoaded(ClusterPosition)) {
-		//UE_LOG(LogTemp, Warning, TEXT("We already have Cluster: %dx%d"), ClusterPosition.X, ClusterPosition.Y);
-		return;
-	} else {
-
-		FString ClusterID = "TerrainCluster ";
-		ClusterID.Append(FString::FromInt(ClusterPosition.X));
-		ClusterID.Append(" / ");
-		ClusterID.Append(FString::FromInt(ClusterPosition.Y));
-
-		//FGuid name = FGuid::NewGuid();
-		//FName(ClusterID)
-		//UE_LOG(LogTemp, Warning, TEXT("Have to create Cluster: %dx%d"), ClusterPosition.X, ClusterPosition.Y);
-
-		//ATerrainCluster* NewCluster = NewObject<ATerrainCluster>(this, FName(ClusterID));
-
-		float ClusterWorldDimension =
-			FTerrainInfo::ChunkSize *
-			FTerrainInfo::QuadSize *
-			FTerrainInfo::ChunksPerSection *
-			FTerrainInfo::SectionsPerCluster;
-
-		FVector Location(ClusterWorldDimension * ClusterPosition.X, ClusterWorldDimension * ClusterPosition.Y, 0.0f);
-		FRotator Rotation(0.0f, 0.0f, 0.0f);
-		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.Owner = this;
-
-		ATerrainCluster* NewCluster = GetWorld()->SpawnActor<ATerrainCluster>(Location, Rotation, SpawnInfo);
-		//NewCluster->SetRootComponent(this);
-		NewCluster->SetActorLabel(ClusterID);
-
-		FAttachmentTransformRules rules = FAttachmentTransformRules(EAttachmentRule::KeepWorld, false);
-		//NewCluster->AttachToActor(this, rules);
-		NewCluster->MakeMobilityStatic();
-
-		NewCluster->SetClusterBase(ClusterPosition);
-
-		NewCluster->LoadChunk(chunk, FTerrainInfo::SectionsPerCluster);
-
-		TerrainClusters.Add(NewCluster);
-
-	}
-
-}
+//void ATerrain::LoadChunk(FInt32Vector2 chunk) {
+//	// Position of the cluster relative to the center of the world
+//	//FInt32Vector2 Position = FInt32Vector2(FMath::FloorToInt(chunk.X / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster), FMath::FloorToInt(chunk.Y / QuadSize / ChunkSize / ChunksPerSection / SectionsPerCluster));
+//	FInt32Vector2 SectorPosition, ClusterPosition;
+//	//Check first if it is already loaded
+//	FTerrainInfo::ChunkToSectionAndCluster(chunk, SectorPosition, ClusterPosition);
+//
+//	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d"), chunk.X, chunk.Y);
+//	UE_LOG(LogTemp, Warning, TEXT("Section: %dx%d"), SectorPosition.X, SectorPosition.Y);
+//	UE_LOG(LogTemp, Warning, TEXT("Cluster: %dx%d"), ClusterPosition.X, ClusterPosition.Y);
+//	UE_LOG(LogTemp, Warning, TEXT(" "));
+//
+//	if(IsClusterLoaded(ClusterPosition)) {
+//		//UE_LOG(LogTemp, Warning, TEXT("We already have Cluster: %dx%d"), ClusterPosition.X, ClusterPosition.Y);
+//		return;
+//	} else {
+//
+//		FString ClusterID = "TerrainCluster ";
+//		ClusterID.Append(FString::FromInt(ClusterPosition.X));
+//		ClusterID.Append(" / ");
+//		ClusterID.Append(FString::FromInt(ClusterPosition.Y));
+//
+//		//FGuid name = FGuid::NewGuid();
+//		//FName(ClusterID)
+//		//UE_LOG(LogTemp, Warning, TEXT("Have to create Cluster: %dx%d"), ClusterPosition.X, ClusterPosition.Y);
+//
+//		//ATerrainCluster* NewCluster = NewObject<ATerrainCluster>(this, FName(ClusterID));
+//
+//		float ClusterWorldDimension =
+//			FTerrainInfo::ChunkSize *
+//			FTerrainInfo::QuadSize *
+//			FTerrainInfo::ChunksPerSection *
+//			FTerrainInfo::SectionsPerCluster;
+//
+//		FVector Location(ClusterWorldDimension * ClusterPosition.X, ClusterWorldDimension * ClusterPosition.Y, 0.0f);
+//		FRotator Rotation(0.0f, 0.0f, 0.0f);
+//		FActorSpawnParameters SpawnInfo;
+//		SpawnInfo.Owner = this;
+//
+//		ATerrainCluster* NewCluster = GetWorld()->SpawnActor<ATerrainCluster>(Location, Rotation, SpawnInfo);
+//		//NewCluster->SetRootComponent(this);
+//		NewCluster->SetActorLabel(ClusterID);
+//
+//		FAttachmentTransformRules rules = FAttachmentTransformRules(EAttachmentRule::KeepWorld, false);
+//		//NewCluster->AttachToActor(this, rules);
+//		NewCluster->MakeMobilityStatic();
+//
+//		NewCluster->SetClusterBase(ClusterPosition);
+//
+//		NewCluster->LoadChunk(chunk, FTerrainInfo::SectionsPerCluster);
+//
+//		TerrainClusters.Add(NewCluster);
+//
+//	}
+//
+//}
 
 void ATerrain::HideOutOfRangeChunks(const FVector2D& PlayerLocation, float VisionRangeRadius) {
 	for(ATerrainCluster* Cluster : TerrainClusters)
 		Cluster->HideOutOfRangeChunks(PlayerLocation, VisionRangeRadius);
+}
+
+void ATerrain::PopulateArrayInSpiralOrder(FInt32Vector2 PointSW, FInt32Vector2 PointNE, TArray<FInt32Vector2>& SpiralGrid) {
+	//TQueue<FInt32Vector2> SpiralGrid;
+
+
+	int32 Rows = PointNE.Y - PointSW.Y;
+	int32 Cols = PointNE.X - PointSW.X;
+
+	int32 Top = Rows;
+	int32 Bottom = 0;
+	int32 Left = 0;
+	int32 Right = Cols;
+
+	while(Bottom <= Top && Left <= Right) {
+		// Traverse right
+		for(int32 i = Left; i <= Right; ++i) {
+			SpiralGrid.Push(FInt32Vector2(PointSW.X + i, PointSW.Y + Bottom));
+		}
+		Bottom++;
+
+		// Traverse up
+		for(int32 i = Bottom; i <= Top; ++i) {
+			SpiralGrid.Push(FInt32Vector2(PointSW.X + Right, PointSW.Y + i));
+		}
+		Right--;
+
+		// Traverse left
+		if(Bottom <= Top) {
+			for(int32 i = Right; i >= Left; --i) {
+				SpiralGrid.Push(FInt32Vector2(PointSW.X + i, PointSW.Y + Top));
+			}
+			Top--;
+		}
+
+		// Traverse down
+		if(Left <= Right) {
+			for(int32 i = Bottom; i >= Top; --i) {
+				SpiralGrid.Push(FInt32Vector2(PointSW.X + Left, PointSW.Y + i));
+			}
+			Left++;
+		}
+	}
 }
 
 ATerrainCluster* ATerrain::GetClusterByChunk(FInt32Vector2 chunk) {

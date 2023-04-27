@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include <TerrainGen/UtilsDataStructs.h>
+#include "Runtime/Core/Public/Containers/Queue.h"
 #include "Terrain.generated.h"
 
 class ATerrainCluster;
@@ -149,8 +150,8 @@ public:
 	UFUNCTION()
 		bool IsChunkLoaded(FInt32Vector2 chunk);
 
-	UFUNCTION()
-		void LoadChunk(FInt32Vector2 chunk);
+	/*UFUNCTION()
+		void LoadChunk(FInt32Vector2 chunk);*/
 
 	UFUNCTION()
 		void LoadClusterAsync(FInt32Vector2 cluster);
@@ -169,5 +170,6 @@ private:
 	UFUNCTION()
 		void HideOutOfRangeChunks(const FVector2D& PlayerLocation, float VisionRangeRadius);
 
+	void PopulateArrayInSpiralOrder(FInt32Vector2 PointSW, FInt32Vector2 PointNE, TArray<FInt32Vector2>& SpiralGrid);
 
 };

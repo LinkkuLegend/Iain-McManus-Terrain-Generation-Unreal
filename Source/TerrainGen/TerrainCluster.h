@@ -3,6 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "UtilsDataStructs.h"
+
 #include "ActorPartition/PartitionActor.h"
 #include "TerrainCluster.generated.h"
 
@@ -10,7 +13,7 @@ class UTerrainSection;
 class ATerrain;
 
 /**
- * 
+ *
  */
 UCLASS()
 class TERRAINGEN_API ATerrainCluster : public AActor {
@@ -18,13 +21,16 @@ class TERRAINGEN_API ATerrainCluster : public AActor {
 
 		ATerrainCluster();
 
-		/** X offset from global components grid origin (in quads) */
-		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
+	/** X offset from global components grid origin (in quads) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
 		int32 ClusterBaseX;
 
 	/** Y offset from global components grid origin (in quads) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LandscapeComponent, meta = (AllowPrivateAccess = "true"))
 		int32 ClusterBaseY;
+
+
+	MArray<float> ClusterHeightMap;
 
 public:
 	/** The array of LandscapeComponent that are used by the landscape */
@@ -49,6 +55,8 @@ public:
 
 	FORCEINLINE FInt32Vector2 GetClusterBase() const { return FInt32Vector2(ClusterBaseX, ClusterBaseY); }
 	FORCEINLINE void SetClusterBase(FInt32Vector2 Base) { ClusterBaseX = Base.X; ClusterBaseY = Base.Y; }
+
+	FORCEINLINE void SetClusterHeightMap(MArray<float> HeightMap) { ClusterHeightMap = HeightMap; }
 
 	ATerrain* GetTerrain() const;
 

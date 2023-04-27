@@ -48,6 +48,7 @@ void ATerrainCluster::LoadAllChunksInCluster() {
 	//FTerrainInfo::ChunkToSectionAndCluster(chunk, SectorPosition, ClusterPosition);
 
 	FInt32Vector2 SectorInitialPosition = FInt32Vector2(ClusterBaseX * FTerrainInfo::SectionsPerCluster, ClusterBaseY * FTerrainInfo::SectionsPerCluster);
+	int HeightMapSectionSize = (FTerrainInfo::ChunkSize * FTerrainInfo::ChunksPerSection);
 
 	for(int y = 0; y < FTerrainInfo::SectionsPerCluster; y++) {
 		for(int x = 0; x < FTerrainInfo::SectionsPerCluster; x++) {
@@ -60,10 +61,17 @@ void ATerrainCluster::LoadAllChunksInCluster() {
 				0.0f);
 			TerrainSection->AddLocalOffset(SectionLocalPos);
 
+			
+
+			MArray<float> SectionHeightMap = ClusterHeightMap.getArea(x * FTerrainInfo::ChunkSize * FTerrainInfo::ChunksPerSection,
+																	  y * FTerrainInfo::ChunkSize * FTerrainInfo::ChunksPerSection,
+																	  HeightMapSectionSize,
+																	  HeightMapSectionSize);
+
 			//TerrainSection->CreateSection(FInt32Vector2(SectorPosition.X + x, SectorPosition.Y + y), FInt32Vector2(chunk.X + x * sectionsPerCluster, chunk.Y + y * sectionsPerCluster), sectionsPerCluster, 64, nullptr);
 
-			TerrainSection->LoadSection(FInt32Vector2(SectorInitialPosition.X + x, SectorInitialPosition.Y + y), nullptr);
-			TerrainSections.Add(TerrainSection); 
+			TerrainSection->LoadSection(FInt32Vector2(SectorInitialPosition.X + x, SectorInitialPosition.Y + y), SectionHeightMap);
+			TerrainSections.Add(TerrainSection);
 		}
 	}
 }

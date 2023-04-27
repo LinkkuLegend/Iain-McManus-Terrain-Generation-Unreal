@@ -16,7 +16,7 @@
 
 
 
-void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, UTexture2D* heightMap) {
+void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, const MArray<float>& HeightMap) {
 
 	SectionBaseX = SectionPos.X;
 	SectionBaseY = SectionPos.Y;
@@ -183,11 +183,16 @@ void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, UTexture2D* heightMa
 				Chunk.X + ChunkSubsectionX,
 				Chunk.Y + ChunkSubsectionY);
 
+			MArray<float> ChunkHeightMap = HeightMap.getArea(ChunkSubsectionX * FTerrainInfo::ChunkSize,
+															 ChunkSubsectionY * FTerrainInfo::ChunkSize,
+															 FTerrainInfo::ChunkSize,
+															 FTerrainInfo::ChunkSize);
+
 			//UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d done from Section %dx%d."), ChunkPos.X, ChunkPos.Y, SectionPos.X, SectionPos.Y);
 
 
-			FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ChunkPos, SectionPos, this]() {
-				LoadChunkAsync(ChunkPos, SectionPos);
+			FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ChunkPos, SectionPos, ChunkHeightMap, this]() {
+				LoadChunkAsync(ChunkPos, SectionPos, ChunkHeightMap);
 			}, TStatId(), nullptr, ENamedThreads::AnyBackgroundHiPriTask);
 			FGraphEventArray MyTasks = { MyAsyncTask };
 			FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
@@ -221,7 +226,7 @@ void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, UTexture2D* heightMa
 
 }
 
-void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section) {
+void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section, const MArray<float>& HeightMap) {
 
 	// Basically a chunk ID for the loop
 	int ChunkSubsection = Chunk.X + Chunk.Y * FTerrainInfo::SectionsPerCluster;
@@ -247,7 +252,7 @@ void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section)
 			instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
 				x * FTerrainInfo::QuadSize,
 				y * FTerrainInfo::QuadSize,
-				0.f)));
+				HeightMap.getItem(x, y) * 1650.f)));
 			MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
 			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
 			MeshDescBuilder.SetInstanceColor(instance, RandomColor);
@@ -301,6 +306,15 @@ void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section)
 	MeshDescPtrs.Emplace(&MeshDescription);
 	load.Mesh->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
 
+	// Build the collision data for the mesh
+	load.Mesh->CreateBodySetup();
+	load.Mesh->ComplexCollisionMesh = load.Mesh;
+	load.Mesh->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
+
+	load.Mesh->GetBodySetup()->InvalidatePhysicsData();
+	load.Mesh->GetBodySetup()->CreatePhysicsMeshes();
+	load.Mesh->MarkPackageDirty();
+
 	FScopeLock lock(&ChunkLoadLock);
 
 	StaticMeshLoadAsync.Enqueue(load);
@@ -310,6 +324,8 @@ void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section)
 }
 
 void UTerrainSection::LoadDataFromAsyncLoad() {
+
+	//FDateTime StartTime = FDateTime::Now();
 
 	FScopeLock lock(&ChunkLoadLock);
 
@@ -337,19 +353,31 @@ void UTerrainSection::LoadDataFromAsyncLoad() {
 
 
 	load.ChunkComponent = NewObject<UStaticMeshComponent>(this, FName(ChunkID));
-	int32 meshID = StaticMesh.Add(load);
-	load.ChunkComponent->SetStaticMesh(load.Mesh);
+
 	load.ChunkComponent->SetWorldLocation(SectionLocalPos);
 	load.ChunkComponent->Mobility = EComponentMobility::Static;
+
+	
+
 	load.ChunkComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	load.ChunkComponent->SetCollisionResponseToAllChannels(ECR_Block);
 	load.ChunkComponent->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
 
+	//Add the mesh to the component
+	int32 meshID = StaticMesh.Add(load);
+	load.ChunkComponent->SetStaticMesh(load.Mesh);
+
+	load.ChunkComponent->UpdateCollisionFromStaticMesh();
 
 	load.ChunkComponent->RegisterComponent();
 
 
 	GetCluster()->AddInstanceComponent(load.ChunkComponent);
+
+	/*FDateTime EndTime = FDateTime::Now();
+	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
+	UE_LOG(LogTemp, Warning, TEXT("Load Mesh Components took: %f ms"), Duration);*/
+
 }
 
 void  UTerrainSection::HideOutOfRangeChunks(const FVector2D& SphereCenter, float SphereRadius) {
@@ -380,6 +408,8 @@ void  UTerrainSection::HideOutOfRangeChunks(const FVector2D& SphereCenter, float
 			StaticMesh[i].ChunkComponent->SetVisibility(true);
 		else
 			StaticMesh[i].ChunkComponent->SetVisibility(false); // This doesn't actually improve performance
+
+		StaticMesh[i].ChunkComponent->IsVisible();
 	}
 
 }
