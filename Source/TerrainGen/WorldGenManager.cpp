@@ -16,11 +16,21 @@ AWorldGenManager::AWorldGenManager(){
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+
+
+	//WorldTerrainGen::PerlinNoiseGenCurves = Curves;
+	
+
 }
 
 // Called when the game starts or when spawned
 void AWorldGenManager::BeginPlay(){
 	Super::BeginPlay();
+
+	// Initialize WorldTerrainGen
+	FTerrainGenCurves Curves;
+	Curves.ContinentalnessCurve = ContinentalnessCurve;
+	WorldTerrainGen::InitializeCurves(Curves);
 
 	// Get a pointer to the current player character
 	PlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
@@ -53,7 +63,7 @@ void AWorldGenManager::GenerateHeightMapByClusterEditor() {
 	UE_LOG(LogTemp, Warning, TEXT("Generating Height Map at debug cluster: %dx%d"), DebugCluster.X, DebugCluster.Y);
 
 	FDateTime StartTime = FDateTime::Now();
-	Continentalness = TerrainGen.GenerateClusterTexture(DebugCluster);
+	Continentalness = TerrainGen.GenerateClusterTexture(DebugCluster, ContinentalnessCurve);
 	FDateTime EndTime = FDateTime::Now();
 	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
 	UE_LOG(LogTemp, Warning, TEXT("MyFunction took %f ms"), Duration);

@@ -8,7 +8,9 @@
 //
 //WorldTerrainGen::~WorldTerrainGen() {}
 
-UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, int32 Octaves, float Persistence, float Frequency) {
+//FTerrainGenCurves WorldTerrainGen::PerlinNoiseGenCurves;
+
+UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
 	UE_LOG(LogTemp, Warning, TEXT("Continentalness Gen Start"));
 
 	MArray<float> HeightMap = PerlinTerrainGen(Cluster, Octaves, Persistence, Frequency);
@@ -55,6 +57,19 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, int32 Oct
 
 }
 
+MArray<float> WorldTerrainGen::GetClusterHeights(FIntPoint Cluster) {
+
+
+	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster), PerlinNoiseGenCurves.ContinentalnessCurve);
+	//MArray<float> HeightMap;
+	
+	//return PerlinTerrainGen(Cluster);
+}
+
+void WorldTerrainGen::InitializeCurves(FTerrainGenCurves Curves) {
+	WorldTerrainGen::PerlinNoiseGenCurves = Curves;
+}
+
 MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, int32 Octaves, float Persistence, float Frequency) {
 	int Width = FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
 	int Height = FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
@@ -86,5 +101,22 @@ MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, int32 Octaves
 	}
 
 	return HeightMap;
+}
+
+MArray<float> WorldTerrainGen::ApplyCurveToPerlin(MArray<float> PerlinNoise, const UCurveFloat* const Curve) {
+	if(Curve == nullptr) {
+		UE_LOG(LogTemp, Warning, TEXT("Curve is null"));
+		return PerlinNoise;
+	}
+
+	MArray<float> HeightMapCurved(0.0f, PerlinNoise.GetArraySize().X, PerlinNoise.GetArraySize().Y);
+	for(uint32 j = 0; j < PerlinNoise.GetArraySize().Y; j++) {
+		for(uint32 i = 0; i < PerlinNoise.GetArraySize().X; i++) {
+			float PerlinValue = PerlinNoise.getItem(i, j);
+			HeightMapCurved.setItem(Curve->GetFloatValue(PerlinValue), i, j);
+		}
+	}
+
+	return HeightMapCurved;
 }
 

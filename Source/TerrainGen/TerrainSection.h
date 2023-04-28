@@ -101,7 +101,7 @@ public:
 
 	void CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap);
 
-	void LoadChunkAsync(FInt32Vector2 ChunkSubsection, FInt32Vector2 Section, const MArray<float>& HeightMap);
+	void LoadChunkAsync(FInt32Vector2 ChunkSubsection, FInt32Vector2 Section, const MArray<float>& HeightMap, UStaticMesh* MeshPointerToLoad);
 
 	void CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const MArray<uint8>& BiomeMap);
 

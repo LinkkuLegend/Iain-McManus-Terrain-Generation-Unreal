@@ -73,4 +73,7 @@ private:
 
 #pragma endregion
 
+	FORCEINLINE UCurveFloat* GetContinentalnessCurve() const {
+		return ContinentalnessCurve;
+	}
 };

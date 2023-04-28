@@ -189,10 +189,11 @@ void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, const MArray<float>&
 															 FTerrainInfo::ChunkSize);
 
 			//UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d done from Section %dx%d."), ChunkPos.X, ChunkPos.Y, SectionPos.X, SectionPos.Y);
+			//We are gonna pass the static mesh to build, new object should be created in the Game thread
+			UStaticMesh* MeshPointerToLoad = NewObject<UStaticMesh>();
 
-
-			FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ChunkPos, SectionPos, ChunkHeightMap, this]() {
-				LoadChunkAsync(ChunkPos, SectionPos, ChunkHeightMap);
+			FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ChunkPos, SectionPos, ChunkHeightMap, MeshPointerToLoad, this]() {
+				LoadChunkAsync(ChunkPos, SectionPos, ChunkHeightMap, MeshPointerToLoad);
 			}, TStatId(), nullptr, ENamedThreads::AnyBackgroundHiPriTask);
 			FGraphEventArray MyTasks = { MyAsyncTask };
 			FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
@@ -226,7 +227,7 @@ void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, const MArray<float>&
 
 }
 
-void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section, const MArray<float>& HeightMap) {
+void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section, const MArray<float>& HeightMap, UStaticMesh* MeshPointerToLoad) {
 
 	// Basically a chunk ID for the loop
 	int ChunkSubsection = Chunk.X + Chunk.Y * FTerrainInfo::SectionsPerCluster;
@@ -252,7 +253,7 @@ void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section,
 			instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
 				x * FTerrainInfo::QuadSize,
 				y * FTerrainInfo::QuadSize,
-				HeightMap.getItem(x, y) * 1650.f)));
+				HeightMap.getItem(x, y) * 10.f)));
 			MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
 			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
 			MeshDescBuilder.SetInstanceColor(instance, RandomColor);
@@ -293,7 +294,7 @@ void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section,
 	FChunkData load;
 	//load.SectionPos = Section;
 	load.ChunkPos = Chunk;
-	load.Mesh = NewObject<UStaticMesh>();
+	load.Mesh = MeshPointerToLoad;
 	load.Mesh->GetStaticMaterials().Add(FStaticMaterial());
 
 	UStaticMesh::FBuildMeshDescriptionsParams MDParams;

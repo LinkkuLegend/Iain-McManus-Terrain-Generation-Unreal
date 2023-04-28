@@ -256,7 +256,7 @@ void ATerrain::LoadClusterAsync(FInt32Vector2 cluster) {
 
 	NewCluster->SetClusterBase(cluster);
 
-	NewCluster->SetClusterHeightMap(WorldTerrainGen::PerlinTerrainGen(FIntPoint(cluster.X, cluster.Y)));
+	NewCluster->SetClusterHeightMap(WorldTerrainGen::GetClusterHeights(FIntPoint(cluster.X, cluster.Y)));
 
 	NewCluster->LoadAllChunksInCluster();
 
@@ -363,7 +363,7 @@ void ATerrain::PopulateArrayInSpiralOrder(FInt32Vector2 PointSW, FInt32Vector2 P
 
 		// Traverse down
 		if(Left <= Right) {
-			for(int32 i = Bottom; i >= Top; --i) {
+			for(int32 i = Top; i >= Bottom; --i) {
 				SpiralGrid.Push(FInt32Vector2(PointSW.X + Left, PointSW.Y + i));
 			}
 			Left++;

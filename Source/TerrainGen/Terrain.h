@@ -117,7 +117,6 @@ private:
 	/* The number of Chunks to load in any direccion, the chunk where the player is located is included */
 	uint8 VisionRange;
 
-
 	//FInt32Vector2 CurrentProxy(FVector Location);
 
 
