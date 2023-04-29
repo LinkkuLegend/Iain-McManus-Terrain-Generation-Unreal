@@ -33,7 +33,7 @@ public:
 
 private:
 
-	static MArray <float> PerlinTerrainGen(FIntPoint Cluster, int32 Octaves = 1, float Persistence = 0.5f, float Frequency = 2.0f);
+	static MArray <float> PerlinTerrainGen(FIntPoint Cluster, float BaseFrequency = 1/64.f, int32 Octaves = 1, float Persistence = 0.5f, float Frequency = 2.0f);
 
 	static MArray<float> ApplyCurveToPerlin(MArray<float> PerlinNoise, const UCurveFloat* const Curve);
 };

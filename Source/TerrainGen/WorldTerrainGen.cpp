@@ -60,7 +60,7 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, const UCu
 MArray<float> WorldTerrainGen::GetClusterHeights(FIntPoint Cluster) {
 
 
-	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster), PerlinNoiseGenCurves.ContinentalnessCurve);
+	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 1/256.f), PerlinNoiseGenCurves.ContinentalnessCurve);
 	//MArray<float> HeightMap;
 	
 	//return PerlinTerrainGen(Cluster);
@@ -70,21 +70,25 @@ void WorldTerrainGen::InitializeCurves(FTerrainGenCurves Curves) {
 	WorldTerrainGen::PerlinNoiseGenCurves = Curves;
 }
 
-MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, int32 Octaves, float Persistence, float Frequency) {
+MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, float BaseFrequency, int32 Octaves, float Persistence, float Frequency) {
 	int Width = FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
 	int Height = FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
 
 	MArray<float> HeightMap(0.0f, Width, Height);
 
-	FVector2D ClusterOffset = FVector2D(Cluster.X * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection,
-										Cluster.Y * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection);
+	float FrequecyOffSet = 1 / BaseFrequency / FTerrainInfo::ChunkSize;
 
+	FVector2D ClusterOffset = FVector2D(Cluster.X * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection / FrequecyOffSet,
+										Cluster.Y * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection / FrequecyOffSet);
+
+	FVector2D SamplePosTest = ClusterOffset + (FVector2D(0.5f, 0.5f) * BaseFrequency);
+	UE_LOG(LogTemp, Warning, TEXT("First sample pos: %fx%f"), SamplePosTest.X, SamplePosTest.Y);
 
 	for(int32 Y = 0; Y < Height; ++Y) {
 		for(int32 X = 0; X < Width; ++X) {
 			float PerlinValue = 0.f;
 			float Amplitude = 1.f;
-			float FrequencyScale = 1 / 64.f;
+			float FrequencyScale = BaseFrequency;
 
 			FVector2D OctaveOffset = FVector2D(X + .5f, Y + .5f);
 
