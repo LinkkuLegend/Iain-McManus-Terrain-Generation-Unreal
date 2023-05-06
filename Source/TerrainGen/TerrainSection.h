@@ -6,11 +6,18 @@
 #include "HAL/CriticalSection.h"
 #include "Runtime/Core/Public/Containers/Queue.h"
 
+#include "ProceduralMeshComponent.h"
+#include "MeshDescription.h"
+#include "StaticMeshOperations.h"
+#include "StaticMeshAttributes.h"
+#include <Runtime/MeshConversion/Public/MeshDescriptionBuilder.h>
+#include "RealtimeMeshLibrary.h"
+#include "RealtimeMeshSimple.h"
+#include "RealtimeMeshComponent.h"
+
 #include "Components/PrimitiveComponent.h"
 #include <TerrainGen/UtilsDataStructs.h>
 #include "TerrainSection.generated.h"
-
-class UProceduralMeshComponent;
 
 
 USTRUCT(BlueprintType)
@@ -18,9 +25,17 @@ struct TERRAINGEN_API FChunkData {
 	GENERATED_BODY()
 public:
 	FInt32Vector2 ChunkPos;
-	UStaticMesh* Mesh;
-	UStaticMeshComponent* ChunkComponent;
+	URealtimeMeshSimple* Mesh;
+	URealtimeMeshComponent* ChunkComponent;
 };
+
+//USTRUCT(BlueprintType)
+//struct TERRAINGEN_API FChunkDataTempAsync {
+//	GENERATED_BODY()
+//public:
+//	FInt32Vector2 ChunkPos;
+//	FMeshDescription* MeshDescription;
+//};
 
 
 //USTRUCT(BlueprintType)
@@ -42,7 +57,7 @@ public:
  *
  */
 UCLASS(Within = TerrainCluster)
-class TERRAINGEN_API UTerrainSection : public USceneComponent {
+class TERRAINGEN_API UTerrainSection : public UObject {
 	GENERATED_BODY()
 
 		/** X offset from global components grid origin (in quads) */
@@ -85,6 +100,7 @@ class TERRAINGEN_API UTerrainSection : public USceneComponent {
 
 
 	TQueue<FChunkData> StaticMeshLoadAsync;
+	//TQueue<TUniqueFunction<void()>> StaticMeshLoadAsync;
 
 public:
 	UFUNCTION()
@@ -94,22 +110,23 @@ public:
 	FORCEINLINE void SetSectionBase(FInt32Vector2 Base) { SectionBaseX = Base.X; SectionBaseY = Base.Y; }
 
 	ATerrainCluster* GetCluster() const;
+	//void AddChunkToQueue(TUniqueFunction<void()> ChunkLoad) const;
 
 	//DEPRECATED
 	//void CreateSection(FInt32Vector2 SectorPos, FInt32Vector2 FirstChunkInSector, int32 numSubsections, int32 chunkSize, UTexture2D* heightMap);
 	void LoadSection(FInt32Vector2 SectionPos, const MArray<float>& HeightMap);
 
-	void CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap);
+	//void CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap);
 
-	void LoadChunkAsync(FInt32Vector2 ChunkSubsection, FInt32Vector2 Section, const MArray<float>& HeightMap, UStaticMesh* MeshPointerToLoad);
+	void LoadChunkAsync(FInt32Vector2 ChunkSubsection, const MArray<float>& HeightMap, UTerrainSection* Section, URealtimeMeshSimple* MeshPointerToLoad);
 
 	void CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const MArray<uint8>& BiomeMap);
 
-	void GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& HeightMap);
+	//void GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& HeightMap);
 
 	void HideOutOfRangeChunks(const FVector2D& SphereCenter, float SphereRadius);
 
-	
+	void SafeDestroy();
 
 private:
 

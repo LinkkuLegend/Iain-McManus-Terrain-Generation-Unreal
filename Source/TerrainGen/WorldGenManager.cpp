@@ -19,7 +19,6 @@ AWorldGenManager::AWorldGenManager(){
 
 
 	//WorldTerrainGen::PerlinNoiseGenCurves = Curves;
-	
 
 }
 
@@ -27,7 +26,7 @@ AWorldGenManager::AWorldGenManager(){
 void AWorldGenManager::BeginPlay(){
 	Super::BeginPlay();
 
-	// Initialize WorldTerrainGen
+	//Initialize WorldTerrainGen
 	FTerrainGenCurves Curves;
 	Curves.ContinentalnessCurve = ContinentalnessCurve;
 	WorldTerrainGen::InitializeCurves(Curves);
@@ -74,23 +73,23 @@ void AWorldGenManager::GenerateHeightMapByClusterEditor() {
 void AWorldGenManager::Tick(float DeltaTime){
 	Super::Tick(DeltaTime);
 
-	double SpeedMagnitude = PlayerCharacter->GetVelocity().Length();
-	// && !isUpdatingTerrain
-	
-	
-	if(SpeedMagnitude > 0) { // OPTIMIZE Change the 1.0f depending of player velocity?
-		if(GetWorld()->GetTimeSeconds() - LastTimeExecuted >= 1.0f) // Check if one second has elapsed since the last time the code was executed
-		{
-			const FVector PlayerPosition = PlayerCharacter->GetActorLocation();
-			double start = GetWorld()->GetTimeSeconds();
-			//FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([PlayerPosition, this]() {
-			TargetTerrain->UpdateTerrain(PlayerPosition);
-				//CallbackUpdateTerrain();
-			//}, TStatId(), nullptr, ENamedThreads::AnyBackgroundHiPriTask);
-			UE_LOG(LogTemp, Warning, TEXT("Time elapsed: %lf"), GetWorld()->GetTimeSeconds() - start);
-			LastTimeExecuted = GetWorld()->GetTimeSeconds(); // Update the last time the code was executed to the current time
-		}
-	}
+	//double SpeedMagnitude = PlayerCharacter->GetVelocity().Length();
+	//// && !isUpdatingTerrain
+	//
+	//
+	//if(SpeedMagnitude > 0) { // OPTIMIZE Change the 1.0f depending of player velocity?
+	//	if(GetWorld()->GetTimeSeconds() - LastTimeExecuted >= 1.0f) // Check if one second has elapsed since the last time the code was executed
+	//	{
+	//		const FVector PlayerPosition = PlayerCharacter->GetActorLocation();
+	//		double start = GetWorld()->GetTimeSeconds();
+	//		TargetTerrain->UpdateTerrain(PlayerPosition);
+	//		//FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([PlayerPosition, this]() {
+	//			//CallbackUpdateTerrain();
+	//		//}, TStatId(), nullptr, ENamedThreads::AnyBackgroundHiPriTask);
+	//		UE_LOG(LogTemp, Warning, TEXT("Time elapsed: %lf"), GetWorld()->GetTimeSeconds() - start);
+	//		LastTimeExecuted = GetWorld()->GetTimeSeconds(); // Update the last time the code was executed to the current time
+	//	}
+	//}
 
 	
 	

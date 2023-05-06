@@ -5,10 +5,36 @@
 #include "TerrainSection.h"
 #include "Terrain.h"
 
+void ATerrainCluster::SafeDestroy() {
+	//Release the Components
+	//for(TObjectPtr<UTerrainSection> Section : TerrainSections) {
+	//	Section->SafeDestroy();
+	//	//Section->UnregisterComponent();
+	//	//Section->DestroyComponent();
+	//	Section->ConditionalBeginDestroy();
+	//	Section == nullptr;
+	//}
+
+	while(TerrainSections.Num() > 0) {
+		TObjectPtr<UTerrainSection> Section = TerrainSections.Pop(false);
+		Section->SafeDestroy();
+		Section->ConditionalBeginDestroy();
+		Section == nullptr;
+	}
+
+	//Delete the actor itself
+	this->Destroy();
+}
+
 ATerrainCluster::ATerrainCluster() {
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent0"));
 	RootComponent = SceneComponent;
 }
+
+//ATerrainCluster::~ATerrainCluster() {
+//	//UE_LOG(LogTemp, Warning, TEXT("Cluster destructor"));
+//	Super::~AActor();
+//}
 
 void ATerrainCluster::MakeMobilityStatic() {
 	RootComponent->Mobility = EComponentMobility::Static;
@@ -35,7 +61,7 @@ void ATerrainCluster::LoadChunk(FInt32Vector2 chunk, uint8 sectionsPerCluster) {
 				x * SectionLocalDimension,
 				y * SectionLocalDimension,
 				0.0f);
-			TerrainSection->AddLocalOffset(SectionLocalPos);
+			//TerrainSection->AddLocalOffset(SectionLocalPos);
 			UE_LOG(LogTemp, Warning, TEXT("Passing Chunk: %dx%d"), chunk.X, chunk.Y);
 			//TerrainSection->CreateSection(FInt32Vector2(SectorPosition.X + x, SectorPosition.Y + y), FInt32Vector2(chunk.X + x * sectionsPerCluster, chunk.Y + y * sectionsPerCluster), sectionsPerCluster, 64, nullptr);
 			TerrainSections.Add(TerrainSection);
@@ -59,9 +85,7 @@ void ATerrainCluster::LoadAllChunksInCluster() {
 				x * SectionLocalDimension,
 				y * SectionLocalDimension,
 				0.0f);
-			TerrainSection->AddLocalOffset(SectionLocalPos);
-
-			
+			//TerrainSection->AddLocalOffset(SectionLocalPos);
 
 			MArray<float> SectionHeightMap = ClusterHeightMap.getArea(x * FTerrainInfo::ChunkSize * FTerrainInfo::ChunksPerSection,
 																	  y * FTerrainInfo::ChunkSize * FTerrainInfo::ChunksPerSection,
@@ -94,5 +118,10 @@ void  ATerrainCluster::HideOutOfRangeChunks(const FVector2D& SphereCenter, float
 }
 
 ATerrain* ATerrainCluster::GetTerrain() const {
-	return CastChecked<ATerrain>(GetOuter());
+	return Owner;
+}
+
+void ATerrainCluster::AddChunkToQueue(TUniqueFunction<void()> ChunkLoad) const {
+	ATerrain* Terrain = GetTerrain();
+	Terrain->EnqueueChunkLoad(MoveTemp(ChunkLoad));
 }

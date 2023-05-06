@@ -5,14 +5,11 @@
 #include "TerrainCluster.h"
 #include "Terrain.h"
 
+
 #include "Misc/DateTime.h"
 #include "Math/UnrealMathUtility.h"
 
-#include "ProceduralMeshComponent.h"
-#include "MeshDescription.h"
-#include "StaticMeshOperations.h"
-#include "StaticMeshAttributes.h"
-#include <Runtime/MeshConversion/Public/MeshDescriptionBuilder.h>
+
 
 
 
@@ -190,15 +187,50 @@ void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, const MArray<float>&
 
 			//UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d done from Section %dx%d."), ChunkPos.X, ChunkPos.Y, SectionPos.X, SectionPos.Y);
 			//We are gonna pass the static mesh to build, new object should be created in the Game thread
-			UStaticMesh* MeshPointerToLoad = NewObject<UStaticMesh>();
+			//UStaticMesh* MeshPointerToLoad = NewObject<UStaticMesh>();
+
+
+			//TUniqueFunction<void()> AsyncFunction = [ChunkPos, ChunkHeightMap, MeshPointerToLoad, this]() {
+			//	LoadChunkAsync(ChunkPos, ChunkHeightMap, MeshPointerToLoad);
+			//};
+
+			//FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady(MoveTemp(AsyncFunction), TStatId(), nullptr, ENamedThreads::AnyBackgroundHiPriTask);
+			//FGraphEventArray MyTasks = { MyAsyncTask };
+			//FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
+			//	LoadDataFromAsyncLoad();
+			//}, TStatId(), &MyTasks, ENamedThreads::GameThread);
+
+			/*TUniqueFunction<void()> AsyncFunction = [ChunkPos, ChunkHeightMap, this]() {
+				LoadChunkAsync(ChunkPos, ChunkHeightMap, this);
+			};
+
+			AddChunkToQueue(MoveTemp(AsyncFunction));*/
+
+			URealtimeMeshSimple* MeshPointerToLoad = NewObject<URealtimeMeshSimple>();
 
 			FGraphEventRef MyAsyncTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ChunkPos, SectionPos, ChunkHeightMap, MeshPointerToLoad, this]() {
-				LoadChunkAsync(ChunkPos, SectionPos, ChunkHeightMap, MeshPointerToLoad);
-			}, TStatId(), nullptr, ENamedThreads::AnyBackgroundHiPriTask);
+				LoadChunkAsync(ChunkPos, ChunkHeightMap, this, MeshPointerToLoad);
+			}, TStatId(), nullptr, ENamedThreads::GameThread);
 			FGraphEventArray MyTasks = { MyAsyncTask };
 			FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
 				LoadDataFromAsyncLoad();
 			}, TStatId(), &MyTasks, ENamedThreads::GameThread);
+
+			/*StaticMeshLoadAsync.Enqueue(MoveTemp(AsyncFunction));
+
+			TUniqueFunction<void()> ResolutionAsyncFunction;
+			StaticMeshLoadAsync.Dequeue(ResolutionAsyncFunction);
+
+			FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady(MoveTemp(ResolutionAsyncFunction), TStatId(), nullptr, ENamedThreads::GameThread);*/
+
+			//AsyncTask(ENamedThreads::GameThread, [ChunkPos, ChunkHeightMap, this]() {
+			//	// Create a new UStaticMesh on the game thread
+			//	LoadChunkAsync(ChunkPos, ChunkHeightMap,this);
+
+
+			//});
+
+			//MyAsyncTask.GetReference()->is
 
 			//FString ChunkID = "Chunk ";
 			//ChunkID.Append(FString::FromInt(FirstChunkInSection.X + ChunkSubsectionX));
@@ -227,44 +259,39 @@ void UTerrainSection::LoadSection(FInt32Vector2 SectionPos, const MArray<float>&
 
 }
 
-void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section, const MArray<float>& HeightMap, UStaticMesh* MeshPointerToLoad) {
+void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, const MArray<float>& HeightMap, UTerrainSection* Section, URealtimeMeshSimple* MeshPointerToLoad) {
 
-	// Basically a chunk ID for the loop
-	int ChunkSubsection = Chunk.X + Chunk.Y * FTerrainInfo::SectionsPerCluster;
+	if(!Section)
+		return;
 
-	// Start of the creation of a static mesh
-	FMeshDescription MeshDescription;
-	FStaticMeshAttributes Attributes(MeshDescription);
-	Attributes.Register();
+	if(!MeshPointerToLoad)
+		return;
 
-	FMeshDescriptionBuilder MeshDescBuilder;
-	MeshDescBuilder.SetMeshDescription(&MeshDescription);
-	MeshDescBuilder.EnablePolyGroups();
-	MeshDescBuilder.SetNumUVLayers(1);
+	FDateTime StartTime = FDateTime::Now();
+	FDateTime EndTime;
 
-	TArray<FVertexInstanceID> vertexInsts;
-	//vertexInsts.SetNum(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
-	FVertexInstanceID instance;
+	FRealtimeMeshSimpleMeshData MeshData;
 
-	FVector4f RandomColor = FVector4f(0.0f, 1.0f, 0.0f, 1.0f);
+	FSoftObjectPath MaterialReference("/Script/Engine.Material'/Game/_Game/Floor.Floor'");
+	UMaterialInterface* Material = Cast<UMaterialInterface>(MaterialReference.TryLoad());
 
-	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
-		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
-			instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
-				x * FTerrainInfo::QuadSize,
-				y * FTerrainInfo::QuadSize,
-				HeightMap.getItem(x, y) * 10.f)));
-			MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
-			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
-			MeshDescBuilder.SetInstanceColor(instance, RandomColor);
-			vertexInsts.Add(instance);
+	MeshPointerToLoad->SetupMaterialSlot(0, TEXT("PrimaryMaterial"), Material);
+
+	MeshData.Positions.Reserve((FTerrainInfo::ChunkSize + 1) ^ 2);
+	MeshData.Normals.Reserve((FTerrainInfo::ChunkSize + 1) ^ 2);
+	MeshData.UV0.Reserve((FTerrainInfo::ChunkSize + 1) ^ 2);
+	
+
+	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; ++y) {
+		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; ++x) {
+			MeshData.Positions.Add(FVector(x * FTerrainInfo::QuadSize, y * FTerrainInfo::QuadSize, HeightMap.getItem(x, y) * 10.f));
+			MeshData.Normals.Add(FVector(0, 0, 1)); //TODO Calculate Normals
+			MeshData.UV0.Add(FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)));
 		}
 	}
 
-
-	// Allocate a polygon group
-	FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
-
+	TArray<int32> Triangles;
+	//Triangles.Reserve(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize * 2 * 3);
 
 	int RowCurrent, RowNext;
 	uint8 ChunkSize = FTerrainInfo::ChunkSize + 1;
@@ -274,55 +301,178 @@ void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, FInt32Vector2 Section,
 			RowCurrent = x + ChunkSize * y;
 			RowNext = RowCurrent + ChunkSize;
 
-			MeshDescBuilder.AppendTriangle(
-				vertexInsts[RowCurrent],
-				vertexInsts[RowNext],
-				vertexInsts[RowCurrent + 1], PolygonGroup);
+			Triangles.Add(RowCurrent);
+			Triangles.Add(RowNext);
+			Triangles.Add(RowCurrent + 1);
 
-
-			MeshDescBuilder.AppendTriangle(
-				vertexInsts[RowCurrent + 1],
-				vertexInsts[RowNext],
-				vertexInsts[RowNext + 1], PolygonGroup);
-
-
+			Triangles.Add(RowCurrent + 1);
+			Triangles.Add(RowNext);
+			Triangles.Add(RowNext + 1);
 
 		}
 	}
 
-	// At least one material must be added
+	MeshData.Triangles = Triangles;
+
+	
+
+	//MeshData.Positions.Add(FVector(0.0f,	0.0f,	10.0f));
+	//MeshData.Positions.Add(FVector(0.0f,	100.0f, 10.0f));
+	//MeshData.Positions.Add(FVector(100.0f,	0.0f,	10.0f));
+	//MeshData.Positions.Add(FVector(100.0f,	100.0f, 10.0f));
+
+	//MeshData.Normals.Add(FVector(0, 0, 1));
+	//MeshData.Normals.Add(FVector(0, 0, 1));
+	//MeshData.Normals.Add(FVector(0, 0, 1));
+	//MeshData.Normals.Add(FVector(0, 0, 1));
+
+	//MeshData.UV0.Add(FVector2D(0.0f, 0.0f));
+	//MeshData.UV0.Add(FVector2D(0.0f, 1.0f));
+	//MeshData.UV0.Add(FVector2D(1.0f, 0.0f));
+	//MeshData.UV0.Add(FVector2D(1.0f, 1.0f));
+
+	//MeshData.Triangles.Add(0);
+	//MeshData.Triangles.Add(2);
+	//MeshData.Triangles.Add(1);
+
+	//MeshData.Triangles.Add(1);
+	//MeshData.Triangles.Add(2);
+	//MeshData.Triangles.Add(3);
+
+	FRealtimeMeshSectionKey StaticSectionKey = MeshPointerToLoad->CreateMeshSection(0, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), MeshData, true);
+
 	FChunkData load;
-	//load.SectionPos = Section;
 	load.ChunkPos = Chunk;
 	load.Mesh = MeshPointerToLoad;
-	load.Mesh->GetStaticMaterials().Add(FStaticMaterial());
 
-	UStaticMesh::FBuildMeshDescriptionsParams MDParams;
-	MDParams.bBuildSimpleCollision = true;
-	MDParams.bFastBuild = true;
-
-	// Build static mesh
-	TArray<const FMeshDescription*> MeshDescPtrs;
-
-	MeshDescPtrs.Emplace(&MeshDescription);
-	load.Mesh->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
-
-	// Build the collision data for the mesh
-	load.Mesh->CreateBodySetup();
-	load.Mesh->ComplexCollisionMesh = load.Mesh;
-	load.Mesh->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
-
-	load.Mesh->GetBodySetup()->InvalidatePhysicsData();
-	load.Mesh->GetBodySetup()->CreatePhysicsMeshes();
-	load.Mesh->MarkPackageDirty();
 
 	FScopeLock lock(&ChunkLoadLock);
 
 	StaticMeshLoadAsync.Enqueue(load);
 
+	EndTime = FDateTime::Now();
+	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
+	UE_LOG(LogTemp, Warning, TEXT("Total Mesh creation took: %f ms"), Duration);
+
 	//UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d Mesh loaded async."), Chunk.X, Chunk.Y);
 
 }
+
+//void UTerrainSection::LoadChunkAsync(FInt32Vector2 Chunk, const MArray<float>& HeightMap, UTerrainSection* Section, UStaticMesh* MeshPointerToLoad) {
+//
+//	if(Section == nullptr)
+//		return;
+//
+//	FDateTime StartTime = FDateTime::Now();
+//	FDateTime EndTime;
+//	// Basically a chunk ID for the loop
+//	int ChunkSubsection = Chunk.X + Chunk.Y * FTerrainInfo::SectionsPerCluster;
+//
+//	// Start of the creation of a static mesh
+//	FMeshDescription MeshDescription;
+//	FStaticMeshAttributes Attributes(MeshDescription);
+//	Attributes.Register();
+//
+//	FMeshDescriptionBuilder MeshDescBuilder;
+//	MeshDescBuilder.SetMeshDescription(&MeshDescription);
+//	MeshDescBuilder.EnablePolyGroups();
+//	MeshDescBuilder.SetNumUVLayers(1);
+//
+//	TArray<FVertexInstanceID> vertexInsts;
+//	//vertexInsts.SetNum(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize);
+//	FVertexInstanceID instance;
+//
+//	FVector4f RandomColor = FVector4f(0.0f, 1.0f, 0.0f, 1.0f);
+//
+//	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
+//		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
+//			instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
+//				x * FTerrainInfo::QuadSize,
+//				y * FTerrainInfo::QuadSize,
+//				HeightMap.getItem(x, y) * 10.f)));
+//			MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
+//			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
+//			MeshDescBuilder.SetInstanceColor(instance, RandomColor);
+//			vertexInsts.Add(instance);
+//		}
+//	}
+//
+//
+//	// Allocate a polygon group
+//	FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
+//
+//
+//	int RowCurrent, RowNext;
+//	uint8 ChunkSize = FTerrainInfo::ChunkSize + 1;
+//	// Add triangles to mesh description
+//	for(int y = 0; y < FTerrainInfo::ChunkSize; ++y) {
+//		for(int x = 0; x < FTerrainInfo::ChunkSize; ++x) {
+//			RowCurrent = x + ChunkSize * y;
+//			RowNext = RowCurrent + ChunkSize;
+//
+//			MeshDescBuilder.AppendTriangle(
+//				vertexInsts[RowCurrent],
+//				vertexInsts[RowNext],
+//				vertexInsts[RowCurrent + 1], PolygonGroup);
+//
+//
+//			MeshDescBuilder.AppendTriangle(
+//				vertexInsts[RowCurrent + 1],
+//				vertexInsts[RowNext],
+//				vertexInsts[RowNext + 1], PolygonGroup);
+//
+//
+//
+//		}
+//	}
+//
+//
+//	/*if(!MeshPointerToLoad->IsValidLowLevel())
+//		return;*/
+//
+//	// At least one material must be added
+//	//FChunkData load;
+//	//load.ChunkPos = Chunk;
+//	//load.Mesh = MeshPointerToLoad;
+//
+//
+//	// Build static mesh
+//	UStaticMesh::FBuildMeshDescriptionsParams MDParams;
+//	MDParams.bBuildSimpleCollision = false;
+//	MDParams.bFastBuild = true;
+//
+//	TArray<const FMeshDescription*> MeshDescPtrs;
+//
+//	MeshDescPtrs.Emplace(&MeshDescription);
+//	MeshPointerToLoad = NewObject<UStaticMesh>();
+//	MeshPointerToLoad->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
+//
+//	//load.Mesh = MeshPointerToLoad;
+//
+//	MeshPointerToLoad->GetStaticMaterials().Add(FStaticMaterial());
+//
+//	//Build the collision data for the mesh
+//	MeshPointerToLoad->ComplexCollisionMesh = MeshPointerToLoad;
+//	MeshPointerToLoad->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
+//	MeshPointerToLoad->GetBodySetup()->InvalidatePhysicsData();
+//	MeshPointerToLoad->GetBodySetup()->CreatePhysicsMeshes();
+//	MeshPointerToLoad->MarkPackageDirty();
+//
+//	FChunkData load;
+//	load.ChunkPos = Chunk;
+//	load.Mesh = MeshPointerToLoad;
+//
+//	FScopeLock lock(&ChunkLoadLock);
+//
+//	StaticMeshLoadAsync.Enqueue(load);
+//
+//	EndTime = FDateTime::Now();
+//	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
+//	UE_LOG(LogTemp, Warning, TEXT("Total Mesh creation took: %f ms"), Duration);
+//
+//	//UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d Mesh loaded async."), Chunk.X, Chunk.Y);
+//
+//}
 
 void UTerrainSection::LoadDataFromAsyncLoad() {
 
@@ -332,6 +482,12 @@ void UTerrainSection::LoadDataFromAsyncLoad() {
 
 	FChunkData load;
 	StaticMeshLoadAsync.Dequeue(load);
+
+
+
+	//FChunkData load;
+	//load.ChunkPos = loadTemp.ChunkPos;
+	//load.Mesh = MeshPointerToLoad;
 
 	/*if(load == FAsyncChunkLoad())
 		return;*/
@@ -352,28 +508,40 @@ void UTerrainSection::LoadDataFromAsyncLoad() {
 
 	// Assign new static mesh to the static mesh component
 
-
-	load.ChunkComponent = NewObject<UStaticMeshComponent>(this, FName(ChunkID));
-
-	load.ChunkComponent->SetWorldLocation(SectionLocalPos);
-	load.ChunkComponent->Mobility = EComponentMobility::Static;
-
 	
 
-	load.ChunkComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	load.ChunkComponent->SetCollisionResponseToAllChannels(ECR_Block);
-	load.ChunkComponent->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
+	load.ChunkComponent = NewObject<URealtimeMeshComponent>(this, FName(ChunkID));
 
-	//Add the mesh to the component
-	int32 meshID = StaticMesh.Add(load);
-	load.ChunkComponent->SetStaticMesh(load.Mesh);
+	//load.ChunkComponent->InitializeRealtimeMesh(load.Mesh->StaticClass());
 
-	load.ChunkComponent->UpdateCollisionFromStaticMesh();
+	load.ChunkComponent->SetRealtimeMesh(load.Mesh);
+	load.ChunkComponent->AddWorldOffset(SectionLocalPos);
 
 	load.ChunkComponent->RegisterComponent();
 
+	StaticMesh.Add(load);
 
 	GetCluster()->AddInstanceComponent(load.ChunkComponent);
+
+	//load.ChunkComponent->SetWorldLocation(SectionLocalPos);
+	//load.ChunkComponent->Mobility = EComponentMobility::Static;
+
+
+
+	//load.ChunkComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	//load.ChunkComponent->SetCollisionResponseToAllChannels(ECR_Block);
+	//load.ChunkComponent->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
+
+	////Add the mesh to the component
+	//int32 meshID = StaticMesh.Add(load);
+	//load.ChunkComponent->SetStaticMesh(load.Mesh);
+
+	//load.ChunkComponent->UpdateCollisionFromStaticMesh();
+
+	//load.ChunkComponent->RegisterComponent();
+
+
+	//GetCluster()->AddInstanceComponent(load.ChunkComponent);
 
 	/*FDateTime EndTime = FDateTime::Now();
 	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
@@ -405,12 +573,12 @@ void  UTerrainSection::HideOutOfRangeChunks(const FVector2D& SphereCenter, float
 		// Check if the distance between the closest point and the center of the sphere is less than or equal to the sphere radius
 		float DistanceSquared = FVector2D::DistSquared(SphereCenter, ClosestPoint);
 		float RadiusSquared = SphereRadius * SphereRadius;
-		if(DistanceSquared <= RadiusSquared)
-			StaticMesh[i].ChunkComponent->SetVisibility(true);
-		else
-			StaticMesh[i].ChunkComponent->SetVisibility(false); // This doesn't actually improve performance
+		//if(DistanceSquared <= RadiusSquared)
+		//	StaticMesh[i].ChunkComponent->SetVisibility(true);
+		//else
+		//	StaticMesh[i].ChunkComponent->SetVisibility(false); // This doesn't actually improve performance
 
-		StaticMesh[i].ChunkComponent->IsVisible();
+		//StaticMesh[i].ChunkComponent->IsVisible();
 	}
 
 }
@@ -539,262 +707,262 @@ void  UTerrainSection::HideOutOfRangeChunks(const FVector2D& SphereCenter, float
 //
 //}
 
-void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap) {
-
-
-	int ChunkPosition = FTerrainInfo::ChunkToSectionPosition(ChunkPos);
-	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, ChunkPosition);
-
-	//Load the reference to the main floot/chunk material.
-	// Assuming you have a variable named "MaterialPath" containing the path of the material you want to load
-	// (e.g. "/Game/MyFolder/MyMaterial.MyMaterial")
-	//FSoftObjectPath MaterialReference("/Script/Engine.Material'/Game/_Game/Floor.Floor'");
-	//UMaterialInterface* Material = Cast<UMaterialInterface>(MaterialReference.TryLoad());
-
-	// Start of the creation of a static mesh
-	FMeshDescription MeshDescription;
-	FStaticMeshAttributes Attributes(MeshDescription);
-	Attributes.Register();
-
-	FMeshDescriptionBuilder MeshDescBuilder;
-	MeshDescBuilder.SetMeshDescription(&MeshDescription);
-	MeshDescBuilder.EnablePolyGroups();
-	MeshDescBuilder.SetNumUVLayers(1);
-
-	// Calculate the normals for the mesh
-	// For this we need the vertices and triangles, but at this point we don't have them yet, and by the way the mesh is build,
-	// I don't see a proper way to do during that procress, so we are going calculate the this data twice
-	// A better method is welcomed
-
-	// Vertices part
-	TArray<FVector> TempVertices, Normals;
-	TArray<FVector2D> TempUVs;
-	TempVertices.Reserve((FTerrainInfo::ChunkSize + 1) * (FTerrainInfo::ChunkSize + 1));
-	Normals.Reserve((FTerrainInfo::ChunkSize + 1) * (FTerrainInfo::ChunkSize + 1));
-	TempUVs.Reserve((FTerrainInfo::ChunkSize + 1) * (FTerrainInfo::ChunkSize + 1));
-
-	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
-		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
-
-			// Vertex
-			TempVertices.Add(FVector(
-				x * FTerrainInfo::QuadSize, // We are doing the same operation
-				y * FTerrainInfo::QuadSize, // and we avoid doing two multiplications
-				HeightMap.getItem(x, y)));
-
-			// Normal initialization, will be used to add weights later
-			Normals.Add(FVector(0.0f));
-			TempUVs.Add(FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)));
-		}
-	}
-
-	// Triangles part
-	TArray<FIntVector> TempTriangles;
-	TempTriangles.Reserve(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize * 2);
-
-	int RowCurrentT, RowNextT;
-	for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
-		for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
-			RowCurrentT = x + (FTerrainInfo::ChunkSize + 1) * y;
-			RowNextT = RowCurrentT + FTerrainInfo::ChunkSize + 1;
-
-			TempTriangles.Add(FIntVector(RowCurrentT,
-										 RowNextT,
-										 RowCurrentT + 1));
-
-			TempTriangles.Add(FIntVector(RowCurrentT + 1,
-										 RowNextT,
-										 RowNextT + 1));
-		}
-	}
-
-
-
-	// Calculate the normals
-	for(int i = 0; i < TempTriangles.Num(); i++) {
-
-		const int VertexA = TempTriangles[i].X; // We get the three vertex indices
-		const int VertexB = TempTriangles[i].Y;
-		const int VertexC = TempTriangles[i].Z;
-
-		const FVector VectorAB = TempVertices[VertexA] - TempVertices[VertexB]; // We calculate two vector of the triangle
-		const FVector VectorCB = TempVertices[VertexC] - TempVertices[VertexB];
-		const FVector ResultNormal = FVector::CrossProduct(VectorAB, VectorCB); // Cross product of to vectors gives us the normals
-
-		Normals[VertexA] += ResultNormal; //We add the weight to the involved vertex
-		Normals[VertexB] += ResultNormal;
-		Normals[VertexC] += ResultNormal;
-
-		/*if(VertexA == FTerrainInfo::ChunkSize + 2 || VertexB == FTerrainInfo::ChunkSize + 2 || VertexC == FTerrainInfo::ChunkSize + 2) {
-			UE_LOG(LogTemp, Warning, TEXT("Vertex: %d - %d - %d"), VertexA, VertexB, VertexC);
-			UE_LOG(LogTemp, Warning, TEXT("VectorAB: %fx%fx%f"), VectorAB.X, VectorAB.Y, VectorAB.Z);
-			UE_LOG(LogTemp, Warning, TEXT("VectorCB: %fx%fx%f"), VectorCB.X, VectorCB.Y, VectorCB.Z);
-			UE_LOG(LogTemp, Warning, TEXT("ResultNormal: %fx%fx%f"), ResultNormal.X, ResultNormal.Y, ResultNormal.Z);
-		}*/
-	}
-
-	//int NormalsTextPos = FTerrainInfo::ChunkSize + 2;
-	//UE_LOG(LogTemp, Warning, TEXT("Normal: %fx%fx%f"), Normals[NormalsTextPos].X, Normals[NormalsTextPos].Y, Normals[NormalsTextPos].Z);
-
-	for(int i = 0; i < Normals.Num(); i++) {
-		Normals[i].Normalize();
-	}
-
-	//UE_LOG(LogTemp, Warning, TEXT("Normal: %fx%fx%f"), Normals[NormalsTextPos].X, Normals[NormalsTextPos].Y, Normals[NormalsTextPos].Z);
-
-	// Let's try to solve Tangets
-	int triangleCount = TempTriangles.Num();
-	int vertexCount = TempVertices.Num();
-
-	TArray<FVector> tan1, tan2, tangents;
-	TArray<bool> sign;
-	tan1.Init(FVector(0.0f), vertexCount);
-	tan2.Init(FVector(0.0f), vertexCount);
-	tangents.Reserve(vertexCount);
-	sign.Reserve(vertexCount);
-
-	for(long a = 0; a < triangleCount; a++) {
-
-		int i1 = TempTriangles[a].X;
-		int i2 = TempTriangles[a].Y;
-		int i3 = TempTriangles[a].Z;
-		FVector v1 = TempVertices[i1];
-		FVector v2 = TempVertices[i2];
-		FVector v3 = TempVertices[i3];
-
-		FVector2D w1 = TempUVs[i1];
-		FVector2D w2 = TempUVs[i2];
-		FVector2D w3 = TempUVs[i3];
-
-		float x1 = v2.X - v1.X;
-		float x2 = v3.X - v1.X;
-		float y1 = v2.Y - v1.Y;
-		float y2 = v3.Y - v1.Y;
-		float z1 = v2.Z - v1.Z;
-		float z2 = v3.Z - v1.Z;
-
-		float s1 = w2.X - w1.X;
-		float s2 = w3.X - w1.X;
-		float t1 = w2.Y - w1.Y;
-		float t2 = w3.Y - w1.Y;
-
-		float r = 1.0f / (s1 * t2 - s2 * t1);
-
-		FVector sdir = FVector((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r);
-		FVector tdir = FVector((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r);
-
-		tan1[i1] += sdir;
-		tan1[i2] += sdir;
-		tan1[i3] += sdir;
-
-		tan2[i1] += tdir;
-		tan2[i2] += tdir;
-		tan2[i3] += tdir;
-	}
-
-	for(long a = 0; a < vertexCount; ++a) {
-		FVector n = Normals[a];
-		FVector t = tan1[a];
-		FVector tmp = (t - n * n.Dot(t));
-		tmp.Normalize();
-
-		tangents.Add(FVector(tmp.X, tmp.Y, tmp.Z));
-		sign.Add(FVector::DotProduct(FVector::CrossProduct(n, t), tan2[a]) < 0.0f ? false : true);
-	}
-
-
-	TArray<FVertexInstanceID> vertexInsts;
-	FVertexInstanceID instance;
-
-	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
-		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
-			/*instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
-				x * FTerrainInfo::QuadSize,
-				y * FTerrainInfo::QuadSize,
-				HeightMap.getItem(x, y))));*/
-
-			instance = MeshDescBuilder.AppendInstance(
-				MeshDescBuilder.AppendVertex(
-					TempVertices[y * (FTerrainInfo::ChunkSize + 1) + x]
-				)
-			);
-
-			//MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
-			MeshDescBuilder.SetInstanceNormal(instance, Normals[y * (FTerrainInfo::ChunkSize + 1) + x]);
-			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
-			//MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 1);
-
-			MeshDescBuilder.SetInstanceTangentSpace(instance,
-													Normals[y * (FTerrainInfo::ChunkSize + 1) + x],
-													tangents[y * (FTerrainInfo::ChunkSize + 1) + x],
-													sign[y * (FTerrainInfo::ChunkSize + 1) + x]);
-			//MeshDescBuilder.SetInstanceColor(instance, RandomColor);
-			vertexInsts.Add(instance);
-
-		}
-	}
-
-	// Allocate a polygon group
-	FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
-	//FStaticMeshOperations::RecomputeNormalsAndTangentsIfNeeded(MeshDescription, EComputeNTBsFlags::Normals); //This do nothing here?
-	//FStaticMeshOperations::ComputeTangentsAndNormals(MeshDescription, EComputeNTBsFlags::Normals);
-
-	int RowCurrent, RowNext;
-	// Add triangles to mesh description
-	for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
-		for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
-			RowCurrent = x + (FTerrainInfo::ChunkSize + 1) * y;
-			RowNext = RowCurrent + FTerrainInfo::ChunkSize + 1;
-
-			FTriangleID triangle = MeshDescBuilder.AppendTriangle(
-				vertexInsts[RowCurrent],
-				vertexInsts[RowNext],
-				vertexInsts[RowCurrent + 1], PolygonGroup);
-
-
-			triangle = MeshDescBuilder.AppendTriangle(
-				vertexInsts[RowCurrent + 1],
-				vertexInsts[RowNext],
-				vertexInsts[RowNext + 1], PolygonGroup);
-
-
-
-		}
-	}
-
-	// At least one material must be added
-	StaticMesh[ChunkPosition].Mesh = NewObject<UStaticMesh>(this);
-	StaticMesh[ChunkPosition].Mesh->GetStaticMaterials().Add(FStaticMaterial());
-
-	UStaticMesh::FBuildMeshDescriptionsParams MDParams;
-	MDParams.bBuildSimpleCollision = true;
-	MDParams.bFastBuild = true;
-
-	// Build static mesh
-	TArray<const FMeshDescription*> MeshDescPtrs;
-
-	MeshDescPtrs.Emplace(&MeshDescription);
-	StaticMesh[ChunkPosition].Mesh->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
-
-	// Build the collision data for the mesh
-	StaticMesh[ChunkPosition].Mesh->CreateBodySetup();
-	StaticMesh[ChunkPosition].Mesh->ComplexCollisionMesh = StaticMesh[ChunkPosition].Mesh;
-	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
-
-	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->InvalidatePhysicsData();
-	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->CreatePhysicsMeshes();
-	StaticMesh[ChunkPosition].Mesh->MarkPackageDirty();
-
-	StaticMesh[ChunkPosition].ChunkComponent->SetStaticMesh(StaticMesh[ChunkPosition].Mesh);
-	StaticMesh[ChunkPosition].ChunkComponent->UpdateCollisionFromStaticMesh();
-
-
-
-
-
-	//ChunkStaticMesh[ChunkPosition]->updatecompone();
-
-}
+//void UTerrainSection::CreateChunkMeshFromHeightMap(FInt32Vector2 ChunkPos, const MArray<float>& HeightMap) {
+//
+//
+//	int ChunkPosition = FTerrainInfo::ChunkToSectionPosition(ChunkPos);
+//	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, ChunkPosition);
+//
+//	//Load the reference to the main floot/chunk material.
+//	// Assuming you have a variable named "MaterialPath" containing the path of the material you want to load
+//	// (e.g. "/Game/MyFolder/MyMaterial.MyMaterial")
+//	//FSoftObjectPath MaterialReference("/Script/Engine.Material'/Game/_Game/Floor.Floor'");
+//	//UMaterialInterface* Material = Cast<UMaterialInterface>(MaterialReference.TryLoad());
+//
+//	// Start of the creation of a static mesh
+//	FMeshDescription MeshDescription;
+//	FStaticMeshAttributes Attributes(MeshDescription);
+//	Attributes.Register();
+//
+//	FMeshDescriptionBuilder MeshDescBuilder;
+//	MeshDescBuilder.SetMeshDescription(&MeshDescription);
+//	MeshDescBuilder.EnablePolyGroups();
+//	MeshDescBuilder.SetNumUVLayers(1);
+//
+//	// Calculate the normals for the mesh
+//	// For this we need the vertices and triangles, but at this point we don't have them yet, and by the way the mesh is build,
+//	// I don't see a proper way to do during that procress, so we are going calculate the this data twice
+//	// A better method is welcomed
+//
+//	// Vertices part
+//	TArray<FVector> TempVertices, Normals;
+//	TArray<FVector2D> TempUVs;
+//	TempVertices.Reserve((FTerrainInfo::ChunkSize + 1) * (FTerrainInfo::ChunkSize + 1));
+//	Normals.Reserve((FTerrainInfo::ChunkSize + 1) * (FTerrainInfo::ChunkSize + 1));
+//	TempUVs.Reserve((FTerrainInfo::ChunkSize + 1) * (FTerrainInfo::ChunkSize + 1));
+//
+//	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
+//		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
+//
+//			// Vertex
+//			TempVertices.Add(FVector(
+//				x * FTerrainInfo::QuadSize, // We are doing the same operation
+//				y * FTerrainInfo::QuadSize, // and we avoid doing two multiplications
+//				HeightMap.getItem(x, y)));
+//
+//			// Normal initialization, will be used to add weights later
+//			Normals.Add(FVector(0.0f));
+//			TempUVs.Add(FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)));
+//		}
+//	}
+//
+//	// Triangles part
+//	TArray<FIntVector> TempTriangles;
+//	TempTriangles.Reserve(FTerrainInfo::ChunkSize * FTerrainInfo::ChunkSize * 2);
+//
+//	int RowCurrentT, RowNextT;
+//	for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
+//		for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
+//			RowCurrentT = x + (FTerrainInfo::ChunkSize + 1) * y;
+//			RowNextT = RowCurrentT + FTerrainInfo::ChunkSize + 1;
+//
+//			TempTriangles.Add(FIntVector(RowCurrentT,
+//										 RowNextT,
+//										 RowCurrentT + 1));
+//
+//			TempTriangles.Add(FIntVector(RowCurrentT + 1,
+//										 RowNextT,
+//										 RowNextT + 1));
+//		}
+//	}
+//
+//
+//
+//	// Calculate the normals
+//	for(int i = 0; i < TempTriangles.Num(); i++) {
+//
+//		const int VertexA = TempTriangles[i].X; // We get the three vertex indices
+//		const int VertexB = TempTriangles[i].Y;
+//		const int VertexC = TempTriangles[i].Z;
+//
+//		const FVector VectorAB = TempVertices[VertexA] - TempVertices[VertexB]; // We calculate two vector of the triangle
+//		const FVector VectorCB = TempVertices[VertexC] - TempVertices[VertexB];
+//		const FVector ResultNormal = FVector::CrossProduct(VectorAB, VectorCB); // Cross product of to vectors gives us the normals
+//
+//		Normals[VertexA] += ResultNormal; //We add the weight to the involved vertex
+//		Normals[VertexB] += ResultNormal;
+//		Normals[VertexC] += ResultNormal;
+//
+//		/*if(VertexA == FTerrainInfo::ChunkSize + 2 || VertexB == FTerrainInfo::ChunkSize + 2 || VertexC == FTerrainInfo::ChunkSize + 2) {
+//			UE_LOG(LogTemp, Warning, TEXT("Vertex: %d - %d - %d"), VertexA, VertexB, VertexC);
+//			UE_LOG(LogTemp, Warning, TEXT("VectorAB: %fx%fx%f"), VectorAB.X, VectorAB.Y, VectorAB.Z);
+//			UE_LOG(LogTemp, Warning, TEXT("VectorCB: %fx%fx%f"), VectorCB.X, VectorCB.Y, VectorCB.Z);
+//			UE_LOG(LogTemp, Warning, TEXT("ResultNormal: %fx%fx%f"), ResultNormal.X, ResultNormal.Y, ResultNormal.Z);
+//		}*/
+//	}
+//
+//	//int NormalsTextPos = FTerrainInfo::ChunkSize + 2;
+//	//UE_LOG(LogTemp, Warning, TEXT("Normal: %fx%fx%f"), Normals[NormalsTextPos].X, Normals[NormalsTextPos].Y, Normals[NormalsTextPos].Z);
+//
+//	for(int i = 0; i < Normals.Num(); i++) {
+//		Normals[i].Normalize();
+//	}
+//
+//	//UE_LOG(LogTemp, Warning, TEXT("Normal: %fx%fx%f"), Normals[NormalsTextPos].X, Normals[NormalsTextPos].Y, Normals[NormalsTextPos].Z);
+//
+//	// Let's try to solve Tangets
+//	int triangleCount = TempTriangles.Num();
+//	int vertexCount = TempVertices.Num();
+//
+//	TArray<FVector> tan1, tan2, tangents;
+//	TArray<bool> sign;
+//	tan1.Init(FVector(0.0f), vertexCount);
+//	tan2.Init(FVector(0.0f), vertexCount);
+//	tangents.Reserve(vertexCount);
+//	sign.Reserve(vertexCount);
+//
+//	for(long a = 0; a < triangleCount; a++) {
+//
+//		int i1 = TempTriangles[a].X;
+//		int i2 = TempTriangles[a].Y;
+//		int i3 = TempTriangles[a].Z;
+//		FVector v1 = TempVertices[i1];
+//		FVector v2 = TempVertices[i2];
+//		FVector v3 = TempVertices[i3];
+//
+//		FVector2D w1 = TempUVs[i1];
+//		FVector2D w2 = TempUVs[i2];
+//		FVector2D w3 = TempUVs[i3];
+//
+//		float x1 = v2.X - v1.X;
+//		float x2 = v3.X - v1.X;
+//		float y1 = v2.Y - v1.Y;
+//		float y2 = v3.Y - v1.Y;
+//		float z1 = v2.Z - v1.Z;
+//		float z2 = v3.Z - v1.Z;
+//
+//		float s1 = w2.X - w1.X;
+//		float s2 = w3.X - w1.X;
+//		float t1 = w2.Y - w1.Y;
+//		float t2 = w3.Y - w1.Y;
+//
+//		float r = 1.0f / (s1 * t2 - s2 * t1);
+//
+//		FVector sdir = FVector((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r);
+//		FVector tdir = FVector((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r);
+//
+//		tan1[i1] += sdir;
+//		tan1[i2] += sdir;
+//		tan1[i3] += sdir;
+//
+//		tan2[i1] += tdir;
+//		tan2[i2] += tdir;
+//		tan2[i3] += tdir;
+//	}
+//
+//	for(long a = 0; a < vertexCount; ++a) {
+//		FVector n = Normals[a];
+//		FVector t = tan1[a];
+//		FVector tmp = (t - n * n.Dot(t));
+//		tmp.Normalize();
+//
+//		tangents.Add(FVector(tmp.X, tmp.Y, tmp.Z));
+//		sign.Add(FVector::DotProduct(FVector::CrossProduct(n, t), tan2[a]) < 0.0f ? false : true);
+//	}
+//
+//
+//	TArray<FVertexInstanceID> vertexInsts;
+//	FVertexInstanceID instance;
+//
+//	for(int y = 0; y < FTerrainInfo::ChunkSize + 1; y++) {
+//		for(int x = 0; x < FTerrainInfo::ChunkSize + 1; x++) {
+//			/*instance = MeshDescBuilder.AppendInstance(MeshDescBuilder.AppendVertex(FVector(
+//				x * FTerrainInfo::QuadSize,
+//				y * FTerrainInfo::QuadSize,
+//				HeightMap.getItem(x, y))));*/
+//
+//			instance = MeshDescBuilder.AppendInstance(
+//				MeshDescBuilder.AppendVertex(
+//					TempVertices[y * (FTerrainInfo::ChunkSize + 1) + x]
+//				)
+//			);
+//
+//			//MeshDescBuilder.SetInstanceNormal(instance, FVector(0, 0, 1));
+//			MeshDescBuilder.SetInstanceNormal(instance, Normals[y * (FTerrainInfo::ChunkSize + 1) + x]);
+//			MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 0);
+//			//MeshDescBuilder.SetInstanceUV(instance, FVector2D(x / (FTerrainInfo::ChunkSize * 1.0f), y / (FTerrainInfo::ChunkSize * 1.0f)), 1);
+//
+//			MeshDescBuilder.SetInstanceTangentSpace(instance,
+//													Normals[y * (FTerrainInfo::ChunkSize + 1) + x],
+//													tangents[y * (FTerrainInfo::ChunkSize + 1) + x],
+//													sign[y * (FTerrainInfo::ChunkSize + 1) + x]);
+//			//MeshDescBuilder.SetInstanceColor(instance, RandomColor);
+//			vertexInsts.Add(instance);
+//
+//		}
+//	}
+//
+//	// Allocate a polygon group
+//	FPolygonGroupID PolygonGroup = MeshDescBuilder.AppendPolygonGroup();
+//	//FStaticMeshOperations::RecomputeNormalsAndTangentsIfNeeded(MeshDescription, EComputeNTBsFlags::Normals); //This do nothing here?
+//	//FStaticMeshOperations::ComputeTangentsAndNormals(MeshDescription, EComputeNTBsFlags::Normals);
+//
+//	int RowCurrent, RowNext;
+//	// Add triangles to mesh description
+//	for(int y = 0; y < FTerrainInfo::ChunkSize; y++) {
+//		for(int x = 0; x < FTerrainInfo::ChunkSize; x++) {
+//			RowCurrent = x + (FTerrainInfo::ChunkSize + 1) * y;
+//			RowNext = RowCurrent + FTerrainInfo::ChunkSize + 1;
+//
+//			FTriangleID triangle = MeshDescBuilder.AppendTriangle(
+//				vertexInsts[RowCurrent],
+//				vertexInsts[RowNext],
+//				vertexInsts[RowCurrent + 1], PolygonGroup);
+//
+//
+//			triangle = MeshDescBuilder.AppendTriangle(
+//				vertexInsts[RowCurrent + 1],
+//				vertexInsts[RowNext],
+//				vertexInsts[RowNext + 1], PolygonGroup);
+//
+//
+//
+//		}
+//	}
+//
+//	// At least one material must be added
+//	//StaticMesh[ChunkPosition].Mesh = NewObject<UStaticMesh>(this);
+//	StaticMesh[ChunkPosition].Mesh->GetStaticMaterials().Add(FStaticMaterial());
+//
+//	UStaticMesh::FBuildMeshDescriptionsParams MDParams;
+//	MDParams.bBuildSimpleCollision = true;
+//	MDParams.bFastBuild = true;
+//
+//	// Build static mesh
+//	TArray<const FMeshDescription*> MeshDescPtrs;
+//
+//	MeshDescPtrs.Emplace(&MeshDescription);
+//	StaticMesh[ChunkPosition].Mesh->BuildFromMeshDescriptions(MeshDescPtrs, MDParams);
+//
+//	// Build the collision data for the mesh
+//	StaticMesh[ChunkPosition].Mesh->CreateBodySetup();
+//	//StaticMesh[ChunkPosition].Mesh->ComplexCollisionMesh = StaticMesh[ChunkPosition].Mesh;
+//	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
+//
+//	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->InvalidatePhysicsData();
+//	StaticMesh[ChunkPosition].Mesh->GetBodySetup()->CreatePhysicsMeshes();
+//	StaticMesh[ChunkPosition].Mesh->MarkPackageDirty();
+//
+//	//StaticMesh[ChunkPosition].ChunkComponent->SetStaticMesh(StaticMesh[ChunkPosition].Mesh);
+//	StaticMesh[ChunkPosition].ChunkComponent->UpdateCollisionFromStaticMesh();
+//
+//
+//
+//
+//
+//	//ChunkStaticMesh[ChunkPosition]->updatecompone();
+//
+//}
 
 void UTerrainSection::CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const MArray<uint8>& BiomeMap) {
 
@@ -827,7 +995,7 @@ void UTerrainSection::CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const 
 		/*UTexture* TextureParameterValue = LoadObject<UTexture>(nullptr, TEXT("/Script/Engine.Texture2D'/Game/_Game/931998321.931998321'"));
 		DynMaterial->SetTextureParameterValue("TextureBase", TextureParameterValue);*/
 
-		StaticMesh[ChunkPosition].ChunkComponent->SetOverlayMaterial(DynMaterial);
+		//StaticMesh[ChunkPosition].ChunkComponent->SetOverlayMaterial(DynMaterial);
 	}
 
 }
@@ -835,52 +1003,73 @@ void UTerrainSection::CreateMaterialsFromBiomeMap(FInt32Vector2 ChunkPos, const 
 /*
 * Return the HeightMap of the give Chunk. The vertices are in local space.
 */
-void UTerrainSection::GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& HeightMap) {
-
-	HeightMap = MArray<float>(FTerrainInfo::ChunkSize + 1, FTerrainInfo::ChunkSize + 1);
-
-	int pos = FTerrainInfo::ChunkToSectionPosition(ChunkPos);
-	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, pos);
-
-	//if(!IsValidLowLevel()) return;
-	if(!StaticMesh[pos].Mesh) return;
-	if(!StaticMesh[pos].Mesh->GetRenderData()) return;
-
-	// Get the vertex buffer from the static mesh
-	FStaticMeshVertexBuffers& VertexBuffers = StaticMesh[pos].Mesh->GetRenderData()->LODResources[0].VertexBuffers;
-	FPositionVertexBuffer* Vertices = &VertexBuffers.PositionVertexBuffer;
-
-	if(!Vertices) {
-		return;
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("Vertices number %d"), Vertices->GetNumVertices());
-	// Iterate over the vertices and print their positions
-	for(uint32 index = 0; index < Vertices->GetNumVertices(); index++) {
-		FVector3f vertex = Vertices->VertexPosition(index);
-		//UE_LOG(LogTemp, Log, TEXT("Vertex %d: (%f, %f, %f)"), index, vertex.X, vertex.Y, vertex.Z);
-
-		HeightMap.setItem(vertex.Z,
-						  (int32)FMath::Fmod(index, (FTerrainInfo::ChunkSize + 1) * 1.0f),
-						  index / (FTerrainInfo::ChunkSize + 1));
-
-		/*if(index == 0 || index == (Vertices->GetNumVertices() - 1))
-			UE_LOG(LogTemp, Log, TEXT("Index %d: (%f, %f, %f)"), index, vertex.X, vertex.Y, vertex.Z);*/
-
-
-			//UE_LOG(LogTemp, Log, TEXT("Vertex %d: (%d, %d, %f)"), index, (int32) FMath::Fmod(index, (FTerrainInfo::ChunkSize + 1) * 1.0f), index / (FTerrainInfo::ChunkSize + 1), vertex.Z);
-
-	}
-
-}
+//void UTerrainSection::GetChunkHeights(FInt32Vector2 ChunkPos, MArray<float>& HeightMap) {
+//
+//	HeightMap = MArray<float>(FTerrainInfo::ChunkSize + 1, FTerrainInfo::ChunkSize + 1);
+//
+//	int pos = FTerrainInfo::ChunkToSectionPosition(ChunkPos);
+//	UE_LOG(LogTemp, Warning, TEXT("Chunk: %dx%d at pos in sector: %d"), ChunkPos.X, ChunkPos.Y, pos);
+//
+//	//if(!IsValidLowLevel()) return;
+//	if(!StaticMesh[pos].Mesh) return;
+//	if(!StaticMesh[pos].Mesh->GetRenderData()) return;
+//
+//	// Get the vertex buffer from the static mesh
+//	FStaticMeshVertexBuffers& VertexBuffers = StaticMesh[pos].Mesh->GetRenderData()->LODResources[0].VertexBuffers;
+//	FPositionVertexBuffer* Vertices = &VertexBuffers.PositionVertexBuffer;
+//
+//	if(!Vertices) {
+//		return;
+//	}
+//
+//	UE_LOG(LogTemp, Log, TEXT("Vertices number %d"), Vertices->GetNumVertices());
+//	// Iterate over the vertices and print their positions
+//	for(uint32 index = 0; index < Vertices->GetNumVertices(); index++) {
+//		FVector3f vertex = Vertices->VertexPosition(index);
+//		//UE_LOG(LogTemp, Log, TEXT("Vertex %d: (%f, %f, %f)"), index, vertex.X, vertex.Y, vertex.Z);
+//
+//		HeightMap.setItem(vertex.Z,
+//						  (int32)FMath::Fmod(index, (FTerrainInfo::ChunkSize + 1) * 1.0f),
+//						  index / (FTerrainInfo::ChunkSize + 1));
+//
+//		/*if(index == 0 || index == (Vertices->GetNumVertices() - 1))
+//			UE_LOG(LogTemp, Log, TEXT("Index %d: (%f, %f, %f)"), index, vertex.X, vertex.Y, vertex.Z);*/
+//
+//
+//			//UE_LOG(LogTemp, Log, TEXT("Vertex %d: (%d, %d, %f)"), index, (int32) FMath::Fmod(index, (FTerrainInfo::ChunkSize + 1) * 1.0f), index / (FTerrainInfo::ChunkSize + 1), vertex.Z);
+//
+//	}
+//
+//}
 
 ATerrainCluster* UTerrainSection::GetCluster() const {
 	return CastChecked<ATerrainCluster>(GetOuter());
 }
+
+//void UTerrainSection::AddChunkToQueue(TUniqueFunction<void()> ChunkLoad) const {
+//	ATerrainCluster* Cluster = CastChecked<ATerrainCluster>(GetOuter());
+//	Cluster->AddChunkToQueue(MoveTemp(ChunkLoad));
+//}
 
 bool UTerrainSection::IsSectorLoaded(FInt32Vector2 section) {
 	if(SectionBaseX == section.X)
 		if(SectionBaseY == section.Y)
 			return true;
 	return false;
+}
+
+void UTerrainSection::SafeDestroy() {
+
+	while(StaticMesh.Num() > 0) {
+		FChunkData ChunkData = StaticMesh.Pop();
+		/*ChunkData.Mesh->ReleaseResources();
+		ChunkData.Mesh->ConditionalBeginDestroy();
+		ChunkData.Mesh = nullptr;*/
+
+		/*ChunkData.ChunkComponent->UnregisterComponent();
+		ChunkData.ChunkComponent->DestroyComponent();*/
+		//ChunkData.ChunkComponent = nullptr;
+	}
+
+
 }

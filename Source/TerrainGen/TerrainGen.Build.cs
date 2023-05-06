@@ -4,10 +4,14 @@ using UnrealBuildTool;
 
 public class TerrainGen : ModuleRules {
     public TerrainGen(ReadOnlyTargetRules Target) : base(Target) {
+       // bLegacyPublicIncludePaths = false;
+
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
+       // PublicIncludePaths.Add("TerrainGen");
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core","CoreUObject","Engine","InputCore","EnhancedInput","ProceduralMeshComponent",
-        "MeshDescription","StaticMeshDescription","MeshConversion"});
+        "MeshDescription","StaticMeshDescription","MeshConversion","RealtimeMeshComponent"});
 
         PrivateDependencyModuleNames.AddRange(new string[] { });
 

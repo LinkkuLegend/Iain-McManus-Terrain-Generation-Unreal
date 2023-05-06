@@ -19,6 +19,8 @@ UCLASS()
 class TERRAINGEN_API ATerrainCluster : public AActor {
 	GENERATED_BODY()
 
+		
+
 		ATerrainCluster();
 
 	/** X offset from global components grid origin (in quads) */
@@ -40,6 +42,7 @@ public:
 	UPROPERTY()
 		TArray<TObjectPtr<UTerrainSection>> TerrainSections;
 
+	ATerrain* Owner;
 
 public:
 
@@ -61,4 +64,8 @@ public:
 	ATerrain* GetTerrain() const;
 
 	void MakeMobilityStatic();
+
+	void SafeDestroy();
+
+	void AddChunkToQueue(TUniqueFunction<void()> ChunkLoad) const;
 };

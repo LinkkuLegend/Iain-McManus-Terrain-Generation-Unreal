@@ -119,6 +119,13 @@ private:
 
 	//FInt32Vector2 CurrentProxy(FVector Location);
 
+	//Async chunk load variables
+	TQueue<TUniqueFunction<void()>> ChunkQueueLoad;
+	FTimerHandle ChunkLoadTimerHandle;
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
 
 private:
 
@@ -134,6 +141,8 @@ private:
 	void DebugPrintLoadedChunks();
 
 	void Reset();
+
+	void LoadNextChunkFromQueue();
 
 public:
 
@@ -158,7 +167,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 		FORCEINLINE ATerrain* GetTerrain() { return this; };
 
-	
+	FORCEINLINE void EnqueueChunkLoad(TUniqueFunction<void()> ChunkLoad) { ChunkQueueLoad.Enqueue(MoveTemp(ChunkLoad)); };
+
+
 
 private:
 

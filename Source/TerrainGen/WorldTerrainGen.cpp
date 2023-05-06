@@ -13,7 +13,7 @@
 UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
 	UE_LOG(LogTemp, Warning, TEXT("Continentalness Gen Start"));
 
-	MArray<float> HeightMap = PerlinTerrainGen(Cluster, Octaves, Persistence, Frequency);
+	MArray<float> HeightMap = ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 1 / 256.f), Curve);
 
 	int Width = HeightMap.GetArraySize().X;
 	int Height = HeightMap.GetArraySize().Y;
@@ -27,7 +27,7 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, const UCu
 		for(int32 X = 0; X < Width; ++X) {
 			int32 PixelIndex = X + Y * Width;
 			float ColorFactor = (HeightMap.getItem(X, Y) + 1) / 2; //This is because perlin noise is between [-1,1], this transform it to [0,1]
-			FColor PixelColor = FColor(255 * ColorFactor, 255 * ColorFactor, 255 * ColorFactor, 255 * ColorFactor);
+			FColor PixelColor = FColor(255 * ColorFactor, 255 * ColorFactor, 255 * ColorFactor, 255);
 			//FColor PixelColor = FColor(ColorFactor, ColorFactor, ColorFactor, 255);
 			FormatedImageData[PixelIndex] = PixelColor;
 		}

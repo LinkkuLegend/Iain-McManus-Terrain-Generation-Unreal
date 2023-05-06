@@ -26,12 +26,14 @@ ATerrain::ATerrain() :
 	Initialize();
 }
 
-//// Called when the game starts or when spawned
-//void ATerrain::BeginPlay()
-//{
-//	Super::BeginPlay();
-//	
-//}
+// Called when the game starts or when spawned
+void ATerrain::BeginPlay()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Reached Begin play in ATerrain"));
+	Super::BeginPlay();
+	//LoadNextChunkFromQueue();
+	UE_LOG(LogTemp, Warning, TEXT("Reached Begin play in ATerrain"));
+}
 //
 //// Called every frame
 //void ATerrain::Tick(float DeltaTime)
@@ -40,10 +42,13 @@ ATerrain::ATerrain() :
 //
 //}
 
+
+
 void ATerrain::Initialize() {
 	//RootComponent->Mobility = EComponentMobility::Static;
 	UE_LOG(LogTemp, Warning, TEXT("Chunk size is: %d"), FTerrainInfo::ChunkSize);
-	Reset();
+	UE_LOG(LogTemp, Warning, TEXT("So nice!5"));
+	//Reset();
 }
 
 void ATerrain::UpdateTerrain(const FVector PlayerPosition) {
@@ -113,7 +118,7 @@ void ATerrain::UpdateTerrain(const FVector PlayerPosition) {
 		}
 		if(!ContainsCluster) {
 			UE_LOG(LogTemp, Warning, TEXT("We are gonna destroy Cluster: %dx%d"), Cluster->GetClusterBase().X, Cluster->GetClusterBase().Y);
-			Cluster->Destroy();
+			Cluster->SafeDestroy();
 			ClusterToSaveAndDestroy.Add(Cluster);
 		}
 	}
@@ -123,47 +128,14 @@ void ATerrain::UpdateTerrain(const FVector PlayerPosition) {
 		TerrainClusters.Remove(ClusterToRemove);
 	}
 
-	HideOutOfRangeChunks(FVector2D(PlayerPosition.X, PlayerPosition.Y), GetVisionRadius());
+	//HideOutOfRangeChunks(FVector2D(PlayerPosition.X, PlayerPosition.Y), GetVisionRadius());
 
-	UE_LOG(LogTemp, Warning, TEXT("Cluster in array: %d"), TerrainClusters.Num());
+	//UE_LOG(LogTemp, Warning, TEXT("Cluster in array: %d"), TerrainClusters.Num());
 
 	FDateTime EndTime = FDateTime::Now();
-	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
-	UE_LOG(LogTemp, Warning, TEXT("Update took: %f ms"), Duration);
+	const FTimespan Duration2 = EndTime - StartTime;
+	UE_LOG(LogTemp, Warning, TEXT("Update took: %f seconds"), Duration2.GetTotalSeconds());
 
-	//int NumOfChunksRow = FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection * VisionRange;
-	//int initialChunkX = FMath::FloorToInt(PlayerPosition.X / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
-	//int initialChunkY = FMath::FloorToInt(PlayerPosition.Y / FTerrainInfo::QuadSize / FTerrainInfo::ChunkSize) - FMath::FloorToInt(VisionRange / 2.0f);
-	//UE_LOG(LogTemp, Warning, TEXT("InitialChunkX: %d, InitialChunkY: %d, NumOfChunksRow: %d"), initialChunkX, initialChunkY, NumOfChunksRow);
-	//for(int x = initialChunkX - NumOfChunksRow; x < initialChunkX + NumOfChunksRow; x++) {
-	//	for(int y = initialChunkY - NumOfChunksRow; y < initialChunkY + NumOfChunksRow; y++) {
-	//		if(IsChunkLoaded(FInt32Vector2(x, y))) {
-	//			UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is loaded."), x, y);
-	//		} else {
-	//			UE_LOG(LogTemp, Warning, TEXT("Chunk %dx%d is not loaded."), x, y);
-	//			//LoadChunk(FInt32Vector2(x, y));
-
-	//			//return;
-	//		}
-	//	}
-	//}
-
-
-
-	//DebugPrintLoadedChunks();
-
-	/*for(ATerrainCluster* Cluster : TerrainClusters) {
-		UE::Math::TVector<double> clusterLocation = Cluster->GetTransform().GetLocation();
-		UE_LOG(LogTemp, Warning, TEXT("Cluster grid: %d x %d"), Cluster->GetClusterBase().X, Cluster->GetClusterBase().Y);
-		UE_LOG(LogTemp, Warning, TEXT("Cluster world: %lf x %lf"), clusterLocation.X, clusterLocation.Y);
-	}*/
-
-	/*for(ATerrainCluster* Cluster : TerrainClusters)
-		for(UTerrainSection* Section : Cluster->TerrainSections) {
-			FVector sectionLocation = Section->GetComponentTransform().GetLocation();
-			UE_LOG(LogTemp, Warning, TEXT("Section grid: %d x %d"), Section->GetSectionBase().X, Section->GetSectionBase().Y);
-			UE_LOG(LogTemp, Warning, TEXT("Section world: %lf x %lf"), sectionLocation.X, sectionLocation.Y);
-		}*/
 }
 
 //void ATerrain::UpdateTerrain(FVector PlayerPosition) {
@@ -247,6 +219,9 @@ void ATerrain::LoadClusterAsync(FInt32Vector2 cluster) {
 
 
 	ATerrainCluster* NewCluster = GetWorld()->SpawnActor<ATerrainCluster>(Location, Rotation, SpawnInfo);
+
+	NewCluster->Owner = this;
+
 	//NewCluster->SetRootComponent(this);
 	NewCluster->SetActorLabel(ClusterID);
 
@@ -262,9 +237,33 @@ void ATerrain::LoadClusterAsync(FInt32Vector2 cluster) {
 
 	TerrainClusters.Add(NewCluster);
 
+
 	UE_LOG(LogTemp, Warning, TEXT("Cluster data generated."));
 
 }
+
+void ATerrain::LoadNextChunkFromQueue() {
+	if(!ChunkQueueLoad.IsEmpty()) {
+		// Get the next chunk function from the queue
+		TUniqueFunction<void()> ResolutionAsyncFunction;
+		ChunkQueueLoad.Dequeue(ResolutionAsyncFunction);
+
+		// Load the chunk at the given position asynchronously
+		FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady(MoveTemp(ResolutionAsyncFunction), TStatId(), nullptr, ENamedThreads::GameThread);
+
+		
+	}
+
+	// Set a delay before loading the next chunk
+	const float ChunkLoadDelay = 0.000001f; // Adjust this value as needed
+	GetWorld()->GetTimerManager().SetTimer(ChunkLoadTimerHandle, this, &ATerrain::LoadNextChunkFromQueue, ChunkLoadDelay, false);
+
+	//const float ChunkLoadDelay = 0.1f; // Adjust this value as needed
+	//GetWorld()->GetTimerManager().SetTimer(ChunkLoadTimerHandle, this, &ATerrain::LoadNextChunkFromQueue, ChunkLoadDelay, false);
+
+	//UE_LOG(LogTemp, Warning, TEXT("BeginPlay"));
+}
+
 
 //void ATerrain::LoadChunk(FInt32Vector2 chunk) {
 //	// Position of the cluster relative to the center of the world
@@ -532,7 +531,7 @@ void ATerrain::GetHeights(int ChunkPosX, int ChunkPosY, int NumChunksX, int NumC
 				continue;
 
 			//MArray<float> ChunkHeightMap;
-			section->GetChunkHeights(FInt32Vector2(x, y), ChunkHeightMap);
+			//section->GetChunkHeights(FInt32Vector2(x, y), ChunkHeightMap);
 			//ChunkHeightMap.PrintInfo();
 			HeightMap.Append(ChunkHeightMap, (x - ChunkPosX) * FTerrainInfo::ChunkSize, (y - ChunkPosY) * FTerrainInfo::ChunkSize);
 		}
@@ -582,7 +581,7 @@ void ATerrain::SetHeights(int ChunkPosX, int ChunkPosY, const MArray<float>& Hei
 			if(section == nullptr)
 				continue;
 
-			section->CreateChunkMeshFromHeightMap(FInt32Vector2(x, y), ChunkHeightMap);
+			//section->CreateChunkMeshFromHeightMap(FInt32Vector2(x, y), ChunkHeightMap);
 		}
 	}
 
