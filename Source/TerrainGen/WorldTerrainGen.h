@@ -16,16 +16,13 @@ public:
  */
 static class TERRAINGEN_API WorldTerrainGen {
 
-	
-
 public:
 	//WorldTerrainGen();
 	//~WorldTerrainGen();
 
 	static inline FTerrainGenCurves PerlinNoiseGenCurves = FTerrainGenCurves();
-
 	// Debug
-	UTexture2D* GenerateClusterTexture(FIntPoint Cluster, const UCurveFloat* const Curve, int32 Octaves = 1, float Persistence = 0.5f, float Frequency = 2.0f);
+	static UTexture2D* GenerateClusterTexture(FIntPoint StartCluster, FIntPoint EndCluster, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves = 1, float Persistence = 0.5f, float Frequency = 2.0f);
 
 	static MArray <float> GetClusterHeights(FIntPoint Cluster);
 

@@ -10,23 +10,48 @@
 
 //FTerrainGenCurves WorldTerrainGen::PerlinNoiseGenCurves;
 
-UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
+UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FIntPoint EndCluster, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
 	UE_LOG(LogTemp, Warning, TEXT("Continentalness Gen Start"));
 
-	MArray<float> HeightMap = ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 1 / 256.f), Curve);
+	check(StartCluster.X < EndCluster.X || StartCluster.Y < EndCluster.Y)
 
-	int Width = HeightMap.GetArraySize().X;
-	int Height = HeightMap.GetArraySize().Y;
+	int ClusterRangeX = (EndCluster.X - StartCluster.X) + 1;
+	int ClusterRangeY = (EndCluster.Y - StartCluster.Y) + 1;
+
+	int Width = FTerrainInfo::ChunkSize * ClusterRangeX * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
+	int Height = FTerrainInfo::ChunkSize * ClusterRangeY * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
+
+	MArray<float> HeightMap(0.0f, Width, Height);
+
+	for(int y = StartCluster.Y; y < ClusterRangeY; y++) {
+		for(int x = StartCluster.X; x < ClusterRangeX; x++) {
+
+			MArray<float> LocalHeightMap = ApplyCurveToPerlin(PerlinTerrainGen(FIntPoint(x, y), BaseFrequency), Curve);
+			HeightMap.Append(LocalHeightMap,
+							 x * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection,
+							 y * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection);
+		}
+	}
+
+	//MArray<float> HeightMap = ApplyCurveToPerlin(PerlinTerrainGen(StartCluster, BaseFrequency), Curve);
+
+	/*int Width = HeightMap.GetArraySize().X;
+	int Height = HeightMap.GetArraySize().Y;*/
+
 
 	UTexture2D* Texture = UTexture2D::CreateTransient(Width, Height, PF_B8G8R8A8); //PF_B8G8R8A8
 	FColor* FormatedImageData = static_cast<FColor*>(Texture->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
+
+	//Perlin noise return values between -1 and 1, so in our curves, that is the working range
+	float GetCurveMinValue = Curve->GetFloatValue(-1);
+	float GetCurveMaxValue = Curve->GetFloatValue(1);
 
 
 
 	for(int32 Y = 0; Y < Height; ++Y) {
 		for(int32 X = 0; X < Width; ++X) {
 			int32 PixelIndex = X + Y * Width;
-			float ColorFactor = (HeightMap.getItem(X, Y) + 1) / 2; //This is because perlin noise is between [-1,1], this transform it to [0,1]
+			float ColorFactor = (HeightMap.getItem(X, Y) - GetCurveMinValue) / (GetCurveMaxValue - GetCurveMinValue);
 			FColor PixelColor = FColor(255 * ColorFactor, 255 * ColorFactor, 255 * ColorFactor, 255);
 			//FColor PixelColor = FColor(ColorFactor, ColorFactor, ColorFactor, 255);
 			FormatedImageData[PixelIndex] = PixelColor;
@@ -60,9 +85,9 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint Cluster, const UCu
 MArray<float> WorldTerrainGen::GetClusterHeights(FIntPoint Cluster) {
 
 
-	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 1/256.f), PerlinNoiseGenCurves.ContinentalnessCurve);
+	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 1 / 256.f), PerlinNoiseGenCurves.ContinentalnessCurve);
 	//MArray<float> HeightMap;
-	
+
 	//return PerlinTerrainGen(Cluster);
 }
 
@@ -82,7 +107,7 @@ MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, float BaseFre
 										Cluster.Y * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection / FrequecyOffSet);
 
 	FVector2D SamplePosTest = ClusterOffset + (FVector2D(0.5f, 0.5f) * BaseFrequency);
-	UE_LOG(LogTemp, Warning, TEXT("First sample pos: %fx%f"), SamplePosTest.X, SamplePosTest.Y);
+	//UE_LOG(LogTemp, Warning, TEXT("First sample pos: %fx%f"), SamplePosTest.X, SamplePosTest.Y);
 
 	for(int32 Y = 0; Y < Height; ++Y) {
 		for(int32 X = 0; X < Width; ++X) {

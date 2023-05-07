@@ -30,7 +30,7 @@ private:
 
 	float LastTimeExecuted;
 
-	WorldTerrainGen TerrainGen;
+	//WorldTerrainGen TerrainGen; //This is now a static class
 
 
 
@@ -47,7 +47,10 @@ public:
 private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
-		FIntPoint DebugCluster;
+		FIntPoint DebugStartCluster;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		FIntPoint DebugEndCluster;
 
 	// Editor Function
 	UFUNCTION(BlueprintCallable, Category = "Perlin Debug")

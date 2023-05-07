@@ -47,7 +47,6 @@ void ATerrain::BeginPlay()
 void ATerrain::Initialize() {
 	//RootComponent->Mobility = EComponentMobility::Static;
 	UE_LOG(LogTemp, Warning, TEXT("Chunk size is: %d"), FTerrainInfo::ChunkSize);
-	UE_LOG(LogTemp, Warning, TEXT("So nice!5"));
 	//Reset();
 }
 

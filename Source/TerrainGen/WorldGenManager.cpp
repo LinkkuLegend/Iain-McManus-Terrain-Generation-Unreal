@@ -59,10 +59,10 @@ void AWorldGenManager::BeginPlay(){
 }
 
 void AWorldGenManager::GenerateHeightMapByClusterEditor() {
-	UE_LOG(LogTemp, Warning, TEXT("Generating Height Map at debug cluster: %dx%d"), DebugCluster.X, DebugCluster.Y);
+	UE_LOG(LogTemp, Warning, TEXT("Generating Height Map at debug cluster: %dx%d"), DebugStartCluster.X, DebugStartCluster.Y);
 
 	FDateTime StartTime = FDateTime::Now();
-	Continentalness = TerrainGen.GenerateClusterTexture(DebugCluster, ContinentalnessCurve);
+	Continentalness = WorldTerrainGen::GenerateClusterTexture(DebugStartCluster, DebugEndCluster, 1/256.f, ContinentalnessCurve);
 	FDateTime EndTime = FDateTime::Now();
 	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());
 	UE_LOG(LogTemp, Warning, TEXT("MyFunction took %f ms"), Duration);
