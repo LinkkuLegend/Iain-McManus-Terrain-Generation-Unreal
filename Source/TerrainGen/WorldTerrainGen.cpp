@@ -26,7 +26,7 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FInt
 	for(int y = StartCluster.Y; y < ClusterRangeY; y++) {
 		for(int x = StartCluster.X; x < ClusterRangeX; x++) {
 
-			MArray<float> LocalHeightMap = ApplyCurveToPerlin(PerlinTerrainGen(FIntPoint(x, y), BaseFrequency), Curve);
+			MArray<float> LocalHeightMap = ApplyCurveToPerlin(PerlinTerrainGen(FIntPoint(x, y), BaseFrequency, Octaves, Persistence, Frequency), Curve);
 			HeightMap.Append(LocalHeightMap,
 							 x * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection,
 							 y * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection);
@@ -113,16 +113,15 @@ MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, float BaseFre
 		for(int32 X = 0; X < Width; ++X) {
 			float PerlinValue = 0.f;
 			float Amplitude = 1.f;
-			float FrequencyScale = BaseFrequency;
 
 			FVector2D OctaveOffset = FVector2D(X + .5f, Y + .5f);
+			FVector2D SamplePos = ClusterOffset + (OctaveOffset * BaseFrequency);
 
 			for(int32 Octave = 0; Octave < Octaves; ++Octave) {
 
-				FVector2D SamplePos = ClusterOffset + (OctaveOffset * FrequencyScale);
+				SamplePos *= Frequency;
 				PerlinValue += FMath::PerlinNoise2D(SamplePos) * Amplitude;
 				Amplitude *= Persistence;
-				FrequencyScale *= Frequency;
 			}
 
 			HeightMap.setItem(PerlinValue, X, Y);
