@@ -30,7 +30,7 @@ void AWorldGenManager::BeginPlay() {
 	FTerrainGenCurves Curves;
 	Curves.ContinentalnessCurve = ContinentalnessCurve;
 	Curves.ErosionCurve = ErosionCurve;
-	WorldTerrainGen::InitializeCurves(Curves);
+	WorldTerrainGen::Initialize(Curves, Seed);
 
 	// Get a pointer to the current player character
 	PlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
@@ -64,10 +64,15 @@ void AWorldGenManager::GenerateHeightMapByClusterEditor() {
 
 	FDateTime StartTime = FDateTime::Now();
 
+	FTerrainGenCurves Curves;
+	Curves.ContinentalnessCurve = ContinentalnessCurve;
+	Curves.ErosionCurve = ErosionCurve;
+	WorldTerrainGen::Initialize(Curves, Seed);
+
 	WorldTerrainGen::PerlinReset();
 
-	Continentalness = WorldTerrainGen::GenerateClusterTexture(DebugStartCluster, DebugEndCluster, 1 / 2048.f, ContinentalnessCurve, 7);
-	Erosion = WorldTerrainGen::GenerateClusterTexture(DebugStartCluster, DebugEndCluster, 1 / 2048.f, ErosionCurve, 4);
+	Continentalness = WorldTerrainGen::GenerateClusterTexture(DebugStartCluster, DebugEndCluster, (uint8)MapType::Continentalness, 1 / 2048.f, ContinentalnessCurve, 7);
+	Erosion = WorldTerrainGen::GenerateClusterTexture(DebugStartCluster, DebugEndCluster, (uint8)MapType::Erosion, 1 / 2048.f, ErosionCurve, 7);
 
 	FDateTime EndTime = FDateTime::Now();
 	float Duration = FPlatformTime::ToMilliseconds((EndTime - StartTime).GetTotalMilliseconds());

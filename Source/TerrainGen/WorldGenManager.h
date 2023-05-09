@@ -9,6 +9,14 @@
 #include <TerrainGen/WorldTerrainGen.h>
 #include "WorldGenManager.generated.h"
 
+UENUM()
+enum class MapType : uint8 {
+	Continentalness = 0,
+	Erosion = 1,
+	PeaksValleys = 2,
+	Temperature = 3,
+	Humidity = 4
+};
 
 UCLASS()
 class TERRAINGEN_API AWorldGenManager : public AActor {
@@ -46,15 +54,18 @@ public:
 #pragma region "Perlin noise Editor Debug"
 private:
 
+	// Editor Function
+	UFUNCTION(BlueprintCallable, Category = "Perlin Debug")
+		void GenerateHeightMapByClusterEditor();
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
 		FIntPoint DebugStartCluster;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
 		FIntPoint DebugEndCluster;
 
-	// Editor Function
-	UFUNCTION(BlueprintCallable, Category = "Perlin Debug")
-		void GenerateHeightMapByClusterEditor();
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		int32 Seed;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
 		UTexture2D* Continentalness;

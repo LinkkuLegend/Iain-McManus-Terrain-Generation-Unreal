@@ -10,12 +10,12 @@
 
 //FTerrainGenCurves WorldTerrainGen::PerlinNoiseGenCurves;
 
-UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FIntPoint EndCluster, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
+UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FIntPoint EndCluster,uint8 Maptype, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
 	UE_LOG(LogTemp, Warning, TEXT("Continentalness Gen Start"));
 
 	check(StartCluster.X < EndCluster.X || StartCluster.Y < EndCluster.Y)
 
-	int ClusterRangeX = (EndCluster.X - StartCluster.X) + 1;
+		int ClusterRangeX = (EndCluster.X - StartCluster.X) + 1;
 	int ClusterRangeY = (EndCluster.Y - StartCluster.Y) + 1;
 
 	int Width = FTerrainInfo::ChunkSize * ClusterRangeX * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
@@ -26,7 +26,7 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FInt
 	for(int y = StartCluster.Y; y < ClusterRangeY; y++) {
 		for(int x = StartCluster.X; x < ClusterRangeX; x++) {
 
-			MArray<float> LocalHeightMap = ApplyCurveToPerlin(PerlinTerrainGen(FIntPoint(x, y), BaseFrequency, Octaves, Persistence, Frequency), Curve);
+			MArray<float> LocalHeightMap = ApplyCurveToPerlin(PerlinTerrainGen(FIntPoint(x, y), Maptype, BaseFrequency, Octaves, Persistence, Frequency), Curve);
 			HeightMap.Append(LocalHeightMap,
 							 x * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection,
 							 y * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection);
@@ -92,21 +92,18 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FInt
 MArray<float> WorldTerrainGen::GetClusterHeights(FIntPoint Cluster) {
 
 
-	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 1 / 2048.f,7), PerlinNoiseGenCurves.ContinentalnessCurve);
+	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster,0, 1 / 2048.f, 7), PerlinNoiseGenCurves.ContinentalnessCurve);
 	//MArray<float> HeightMap;
 
 	//return PerlinTerrainGen(Cluster);
 }
 
-void WorldTerrainGen::InitializeCurves(FTerrainGenCurves Curves) {
-	FMath::SRandInit(2147483647);
-
-
-
+void WorldTerrainGen::Initialize(FTerrainGenCurves Curves, int32 SeedLocal) {
+	Seed = SeedLocal;
 	WorldTerrainGen::PerlinNoiseGenCurves = Curves;
 }
 
-MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, float BaseFrequency, int32 Octaves, float Persistence, float Frequency) {
+MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, uint8 MapType, float BaseFrequency, int32 Octaves, float Persistence, float Frequency) {
 	int Width = FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
 	int Height = FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
 
@@ -131,7 +128,7 @@ MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, float BaseFre
 			for(int32 Octave = 0; Octave < Octaves; ++Octave) {
 
 				SamplePos *= Frequency;
-				PerlinValue += PerlinNoise2D(SamplePos) * Amplitude;
+				PerlinValue += PerlinNoise2D(SamplePos, MapType) * Amplitude;
 				Amplitude *= Persistence;
 			}
 
@@ -164,21 +161,7 @@ MArray<float> WorldTerrainGen::ApplyCurveToPerlin(MArray<float> PerlinNoise, con
 namespace FMathPerlinHelpers
 {
 	// random permutation of 256 numbers, repeated 2x
-	static int32 Permutation[512] = {
-		63, 9, 212, 205, 31, 128, 72, 59, 137, 203, 195, 170, 181, 115, 165, 40, 116, 139, 175, 225, 132, 99, 222, 2, 41, 15, 197, 93, 169, 90, 228, 43, 221, 38, 206, 204, 73, 17, 97, 10, 96, 47, 32, 138, 136, 30, 219,
-		78, 224, 13, 193, 88, 134, 211, 7, 112, 176, 19, 106, 83, 75, 217, 85, 0, 98, 140, 229, 80, 118, 151, 117, 251, 103, 242, 81, 238, 172, 82, 110, 4, 227, 77, 243, 46, 12, 189, 34, 188, 200, 161, 68, 76, 171, 194,
-		57, 48, 247, 233, 51, 105, 5, 23, 42, 50, 216, 45, 239, 148, 249, 84, 70, 125, 108, 241, 62, 66, 64, 240, 173, 185, 250, 49, 6, 37, 26, 21, 244, 60, 223, 255, 16, 145, 27, 109, 58, 102, 142, 253, 120, 149, 160,
-		124, 156, 79, 186, 135, 127, 14, 121, 22, 65, 54, 153, 91, 213, 174, 24, 252, 131, 192, 190, 202, 208, 35, 94, 231, 56, 95, 183, 163, 111, 147, 25, 67, 36, 92, 236, 71, 166, 1, 187, 100, 130, 143, 237, 178, 158,
-		104, 184, 159, 177, 52, 214, 230, 119, 87, 114, 201, 179, 198, 3, 248, 182, 39, 11, 152, 196, 113, 20, 232, 69, 141, 207, 234, 53, 86, 180, 226, 74, 150, 218, 29, 133, 8, 44, 123, 28, 146, 89, 101, 154, 220, 126,
-		155, 122, 210, 168, 254, 162, 129, 33, 18, 209, 61, 191, 199, 157, 245, 55, 164, 167, 215, 246, 144, 107, 235,
-
-		63, 9, 212, 205, 31, 128, 72, 59, 137, 203, 195, 170, 181, 115, 165, 40, 116, 139, 175, 225, 132, 99, 222, 2, 41, 15, 197, 93, 169, 90, 228, 43, 221, 38, 206, 204, 73, 17, 97, 10, 96, 47, 32, 138, 136, 30, 219,
-		78, 224, 13, 193, 88, 134, 211, 7, 112, 176, 19, 106, 83, 75, 217, 85, 0, 98, 140, 229, 80, 118, 151, 117, 251, 103, 242, 81, 238, 172, 82, 110, 4, 227, 77, 243, 46, 12, 189, 34, 188, 200, 161, 68, 76, 171, 194,
-		57, 48, 247, 233, 51, 105, 5, 23, 42, 50, 216, 45, 239, 148, 249, 84, 70, 125, 108, 241, 62, 66, 64, 240, 173, 185, 250, 49, 6, 37, 26, 21, 244, 60, 223, 255, 16, 145, 27, 109, 58, 102, 142, 253, 120, 149, 160,
-		124, 156, 79, 186, 135, 127, 14, 121, 22, 65, 54, 153, 91, 213, 174, 24, 252, 131, 192, 190, 202, 208, 35, 94, 231, 56, 95, 183, 163, 111, 147, 25, 67, 36, 92, 236, 71, 166, 1, 187, 100, 130, 143, 237, 178, 158,
-		104, 184, 159, 177, 52, 214, 230, 119, 87, 114, 201, 179, 198, 3, 248, 182, 39, 11, 152, 196, 113, 20, 232, 69, 141, 207, 234, 53, 86, 180, 226, 74, 150, 218, 29, 133, 8, 44, 123, 28, 146, 89, 101, 154, 220, 126,
-		155, 122, 210, 168, 254, 162, 129, 33, 18, 209, 61, 191, 199, 157, 245, 55, 164, 167, 215, 246, 144, 107, 235
-	};
+	static int32 Permutation[5][512];
 
 	// Gradient functions for 1D, 2D and 3D Perlin noise
 
@@ -236,7 +219,7 @@ namespace FMathPerlinHelpers
 	}
 };
 
-float WorldTerrainGen::PerlinNoise2D(const FVector2D& Location) {
+float WorldTerrainGen::PerlinNoise2D(const FVector2D& Location, uint8 Permute) {
 	using namespace FMathPerlinHelpers;
 
 	float Xfl = FMath::FloorToFloat((float)Location.X);		// LWC_TODO: Precision loss
@@ -248,7 +231,7 @@ float WorldTerrainGen::PerlinNoise2D(const FVector2D& Location) {
 	float Xm1 = X - 1.0f;
 	float Ym1 = Y - 1.0f;
 
-	const int32* P = Permutation;
+	const int32* P = Permutation[Permute];
 	int32 AA = P[Xi] + Yi;
 	int32 AB = AA + 1;
 	int32 BA = P[Xi + 1] + Yi;
@@ -265,30 +248,31 @@ float WorldTerrainGen::PerlinNoise2D(const FVector2D& Location) {
 }
 
 void WorldTerrainGen::PerlinReset() {
-	using namespace FMathPerlinHelpers;
-
-	FRandomStream RandomStream(2147483647);
-
 	//We need to rebuild the permutation Array to get a new Perlin Noise "seed". The permutation is the "seed" for the Perlin Noise, and it is calculate by the current SRand seed
 	//The permutatuon is an array of random numbers from 0 to 255, then copied again at the end. 512 numbers in total;
 
-	//We are gonna make the first part, so just fill an Array with the numbers from 0 to 512
-	TArray<int32> numbers;
-	numbers.SetNumUninitialized(256);
-	for(int32 i = 0; i < 256; ++i)
-		numbers[i] = i;
+	using namespace FMathPerlinHelpers;
+	FRandomStream RandomStream(Seed);
+	uint8 NumberOfNoisesNeeded = 5;
 
-	//Then we shuffle the array
-	int32 LastIndex = numbers.Num() - 1;
-	for(int32 i = 0; i <= LastIndex; ++i) {
-		int32 Index = RandomStream.RandRange(0, LastIndex);
-		numbers.Swap(i, Index);
-	}
-	// Now we copy the array twice to the permutation
-	for(int32 i = 0; i < 256; ++i) {
-		Permutation[i] = numbers[i];
-		Permutation[i + 256] = numbers[i];	
+	for(int x = 0; x < NumberOfNoisesNeeded; x++) {
+		//We are gonna make the first part, so just fill an Array with the numbers from 0 to 512
+		TArray<int32> numbers;
+		numbers.SetNumUninitialized(256);
+		for(int32 i = 0; i < 256; ++i)
+			numbers[i] = i;
 
+		//Then we shuffle the array
+		int32 LastIndex = numbers.Num() - 1;
+		for(int32 i = 0; i <= LastIndex; ++i) {
+			int32 Index = RandomStream.RandRange(0, LastIndex);
+			numbers.Swap(i, Index);
+		}
+		// Now we copy the array twice to the permutation
+		for(int32 i = 0; i < 256; ++i) {
+			Permutation[x][i] = numbers[i];
+			Permutation[x][i + 256] = numbers[i];
+		}
 	}
 };
 
