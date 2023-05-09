@@ -9,6 +9,7 @@
 struct TERRAINGEN_API FTerrainGenCurves {
 public:
 	UCurveFloat* ContinentalnessCurve;
+	UCurveFloat* ErosionCurve;
 };
 
 /**
@@ -28,9 +29,15 @@ public:
 
 	static void InitializeCurves(FTerrainGenCurves Curves);
 
+	static void PerlinReset(); //Put it back to private later
+
 private:
 
 	static MArray <float> PerlinTerrainGen(FIntPoint Cluster, float BaseFrequency = 1/64.f, int32 Octaves = 1, float Persistence = 0.5f, float Frequency = 2.0f);
 
 	static MArray<float> ApplyCurveToPerlin(MArray<float> PerlinNoise, const UCurveFloat* const Curve);
+
+	static float PerlinNoise2D(const FVector2D& Location);
+
+	
 };
