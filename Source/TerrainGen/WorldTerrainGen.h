@@ -26,7 +26,11 @@ public:
 	static inline int32 Seed = 0;
 
 	// Debug
-	static UTexture2D* GenerateClusterTexture(FIntPoint StartCluster, FIntPoint EndCluster, uint8 Maptype, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves = 1, float Persistence = 0.5f, float Frequency = 2.0f);
+	static UTexture2D* GenerateClusterTexture(MArray<float> HeightMap, const UCurveFloat* const Curve);
+
+	static MArray<float> GenerateClusterHeightMap(FIntPoint StartCluster, FIntPoint EndCluster, uint8 Maptype, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves = 1, float Persistence = 0.5f, float Frequency = 2.0f);
+
+	static UTexture2D* MixMainTextures(MArray<float> ContinentalnessHeightMap, MArray<float> ErosionHeightMap, const UCurveFloat* const Curve);
 
 	static MArray <float> GetClusterHeights(FIntPoint Cluster);
 
@@ -42,5 +46,6 @@ private:
 
 	static float PerlinNoise2D(const FVector2D& Location, uint8 Permute);
 
+	static MArray<float> MixMainHeightMaps(MArray<float> ContinentalnessHeightMap, MArray<float> ErosionHeightMap);
 	
 };

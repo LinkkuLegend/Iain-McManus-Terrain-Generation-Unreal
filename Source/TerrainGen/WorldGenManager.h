@@ -54,6 +54,11 @@ public:
 #pragma region "Perlin noise Editor Debug"
 private:
 
+	float BaseFrequencyContinentalness = 1 / 4096.f;
+	float BaseFrequencyErosion = 1 / 4096.f;
+	float OctavesContinentalness = 7;
+	float OctavesErosion = 7;
+
 	// Editor Function
 	UFUNCTION(BlueprintCallable, Category = "Perlin Debug")
 		void GenerateHeightMapByClusterEditor();
@@ -66,6 +71,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
 		int32 Seed;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* WorldHeight;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
 		UTexture2D* Continentalness;

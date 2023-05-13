@@ -10,12 +10,10 @@
 
 //FTerrainGenCurves WorldTerrainGen::PerlinNoiseGenCurves;
 
-UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FIntPoint EndCluster,uint8 Maptype, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
-	UE_LOG(LogTemp, Warning, TEXT("Continentalness Gen Start"));
+MArray<float> WorldTerrainGen::GenerateClusterHeightMap(FIntPoint StartCluster, FIntPoint EndCluster, uint8 Maptype, float BaseFrequency, const UCurveFloat* const Curve, int32 Octaves, float Persistence, float Frequency) {
+	check(StartCluster.X < EndCluster.X || StartCluster.Y < EndCluster.Y);
 
-	check(StartCluster.X < EndCluster.X || StartCluster.Y < EndCluster.Y)
-
-		int ClusterRangeX = (EndCluster.X - StartCluster.X) + 1;
+	int ClusterRangeX = (EndCluster.X - StartCluster.X) + 1;
 	int ClusterRangeY = (EndCluster.Y - StartCluster.Y) + 1;
 
 	int Width = FTerrainInfo::ChunkSize * ClusterRangeX * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection + 1;
@@ -32,6 +30,17 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FInt
 							 y * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection);
 		}
 	}
+
+	return HeightMap;
+}
+
+
+UTexture2D* WorldTerrainGen::GenerateClusterTexture(MArray<float> HeightMap, const UCurveFloat* const Curve) {
+	UE_LOG(LogTemp, Warning, TEXT("Continentalness Gen Start"));
+
+
+	int Width = HeightMap.GetArraySize().X;
+	int Height = HeightMap.GetArraySize().Y;
 
 	//MArray<float> HeightMap = ApplyCurveToPerlin(PerlinTerrainGen(StartCluster, BaseFrequency), Curve);
 
@@ -89,10 +98,83 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(FIntPoint StartCluster, FInt
 
 }
 
+MArray<float> WorldTerrainGen::MixMainHeightMaps(MArray<float> ContinentalnessHeightMap, MArray<float> ErosionHeightMap) {
+	
+	int32 Width = ContinentalnessHeightMap.GetArraySize().X;
+	int32 Height = ContinentalnessHeightMap.GetArraySize().Y;
+
+	MArray<float> HeightMap(0.0f, Width, Height);
+
+
+	for(int32 Y = 0; Y < Height; ++Y) {
+		for(int32 X = 0; X < Width; ++X) {
+			int32 PixelIndex = X + Y * Width;
+
+			float base = ContinentalnessHeightMap.getItem(X, Y);
+			float diff = ErosionHeightMap.getItem(X, Y);
+
+			float result = ((base - diff) < 0) ? 0 : (base - diff);
+			HeightMap.setItem(result,X,Y);
+		}
+	}
+
+	return HeightMap;
+}
+
+UTexture2D* WorldTerrainGen::MixMainTextures(MArray<float> ContinentalnessHeightMap, MArray<float> ErosionHeightMap, const UCurveFloat* const Curve) {
+
+
+
+	/*FColor* ContinentalnessColorData = static_cast<FColor*>(ContinentalnessTex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
+	FColor* ErosionColorData = static_cast<FColor*>(ErosionTex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE));*/
+
+	int32 Width = ContinentalnessHeightMap.GetArraySize().X;
+	int32 Height = ContinentalnessHeightMap.GetArraySize().Y;
+	EPixelFormat PixelFormat = EPixelFormat::PF_B8G8R8A8;
+
+	float GetCurveMaxValue = -std::numeric_limits<float>::infinity();
+	float GetCurveMinValue = std::numeric_limits<float>::infinity();
+	for(const auto& Key : Curve->FloatCurve.GetConstRefOfKeys()) {
+		GetCurveMaxValue = FMath::Max(GetCurveMaxValue, Key.Value);
+		GetCurveMinValue = FMath::Min(GetCurveMinValue, Key.Value);
+	}
+
+	MArray<float> HeightMap = MixMainHeightMaps( ContinentalnessHeightMap, ErosionHeightMap);
+
+
+	UTexture2D* WorldTexture = UTexture2D::CreateTransient(Width, Height, PixelFormat); //PF_B8G8R8A8
+	FColor* FormatedImageData = static_cast<FColor*>(WorldTexture->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
+
+	for(int32 Y = 0; Y < Height; ++Y) {
+		for(int32 X = 0; X < Width; ++X) {
+			int32 PixelIndex = X + Y * Width;
+
+			float base = ContinentalnessHeightMap.getItem(X, Y);
+			float diff = ErosionHeightMap.getItem(X, Y);
+
+			float result = HeightMap.getItem(X,Y);
+			float ColorFactor = (result - GetCurveMinValue) / (GetCurveMaxValue - GetCurveMinValue);
+
+			FormatedImageData[PixelIndex] = FColor(255 * ColorFactor, 255 * ColorFactor, 255 * ColorFactor, 255);
+		}
+	}
+
+	//ContinentalnessTex->GetPlatformData()->Mips[0].BulkData.Unlock();
+	//ErosionTex->GetPlatformData()->Mips[0].BulkData.Unlock();
+
+	WorldTexture->GetPlatformData()->Mips[0].BulkData.Unlock();
+	WorldTexture->UpdateResource();
+
+
+	return WorldTexture;
+}
+
 MArray<float> WorldTerrainGen::GetClusterHeights(FIntPoint Cluster) {
 
+	MArray<float> ContinentalnessMap = ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 0, 1 / 4096.f, 7), PerlinNoiseGenCurves.ContinentalnessCurve);
+	MArray<float> ErosionMap = ApplyCurveToPerlin(PerlinTerrainGen(Cluster, 1, 1 / 4096.f, 7), PerlinNoiseGenCurves.ErosionCurve);
 
-	return ApplyCurveToPerlin(PerlinTerrainGen(Cluster,0, 1 / 2048.f, 7), PerlinNoiseGenCurves.ContinentalnessCurve);
+	return MixMainHeightMaps(ContinentalnessMap, ErosionMap);
 	//MArray<float> HeightMap;
 
 	//return PerlinTerrainGen(Cluster);
@@ -101,6 +183,8 @@ MArray<float> WorldTerrainGen::GetClusterHeights(FIntPoint Cluster) {
 void WorldTerrainGen::Initialize(FTerrainGenCurves Curves, int32 SeedLocal) {
 	Seed = SeedLocal;
 	WorldTerrainGen::PerlinNoiseGenCurves = Curves;
+
+	WorldTerrainGen::PerlinReset();
 }
 
 MArray<float> WorldTerrainGen::PerlinTerrainGen(FIntPoint Cluster, uint8 MapType, float BaseFrequency, int32 Octaves, float Persistence, float Frequency) {
