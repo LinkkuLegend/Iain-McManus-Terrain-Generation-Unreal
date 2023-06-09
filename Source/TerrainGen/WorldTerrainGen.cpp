@@ -24,10 +24,13 @@ MArray<float> WorldTerrainGen::GenerateClusterHeightMap(FIntPoint StartCluster, 
 	for(int y = StartCluster.Y; y < ClusterRangeY; y++) {
 		for(int x = StartCluster.X; x < ClusterRangeX; x++) {
 
-			MArray<float> LocalHeightMap = ApplyCurveToPerlin(PerlinTerrainGen(FIntPoint(x, y), Maptype, BaseFrequency, Octaves, Persistence, Frequency), Curve);
+			MArray<float> LocalHeightMap;
+
+			LocalHeightMap = ApplyCurveToPerlin(PerlinTerrainGen(FIntPoint(x, y), Maptype, BaseFrequency, Octaves, Persistence, Frequency), Curve);
 			HeightMap.Append(LocalHeightMap,
 							 x * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection,
 							 y * FTerrainInfo::ChunkSize * FTerrainInfo::SectionsPerCluster * FTerrainInfo::ChunksPerSection);
+
 		}
 	}
 
@@ -99,7 +102,7 @@ UTexture2D* WorldTerrainGen::GenerateClusterTexture(MArray<float> HeightMap, con
 }
 
 MArray<float> WorldTerrainGen::MixMainHeightMaps(MArray<float> ContinentalnessHeightMap, MArray<float> ErosionHeightMap) {
-	
+
 	int32 Width = ContinentalnessHeightMap.GetArraySize().X;
 	int32 Height = ContinentalnessHeightMap.GetArraySize().Y;
 
@@ -114,7 +117,7 @@ MArray<float> WorldTerrainGen::MixMainHeightMaps(MArray<float> ContinentalnessHe
 			float diff = ErosionHeightMap.getItem(X, Y);
 
 			float result = ((base - diff) < 0) ? 0 : (base - diff);
-			HeightMap.setItem(result,X,Y);
+			HeightMap.setItem(result, X, Y);
 		}
 	}
 
@@ -139,7 +142,7 @@ UTexture2D* WorldTerrainGen::MixMainTextures(MArray<float> ContinentalnessHeight
 		GetCurveMinValue = FMath::Min(GetCurveMinValue, Key.Value);
 	}
 
-	MArray<float> HeightMap = MixMainHeightMaps( ContinentalnessHeightMap, ErosionHeightMap);
+	MArray<float> HeightMap = MixMainHeightMaps(ContinentalnessHeightMap, ErosionHeightMap);
 
 
 	UTexture2D* WorldTexture = UTexture2D::CreateTransient(Width, Height, PixelFormat); //PF_B8G8R8A8
@@ -152,7 +155,7 @@ UTexture2D* WorldTerrainGen::MixMainTextures(MArray<float> ContinentalnessHeight
 			float base = ContinentalnessHeightMap.getItem(X, Y);
 			float diff = ErosionHeightMap.getItem(X, Y);
 
-			float result = HeightMap.getItem(X,Y);
+			float result = HeightMap.getItem(X, Y);
 			float ColorFactor = (result - GetCurveMinValue) / (GetCurveMaxValue - GetCurveMinValue);
 
 			FormatedImageData[PixelIndex] = FColor(255 * ColorFactor, 255 * ColorFactor, 255 * ColorFactor, 255);

@@ -5,6 +5,8 @@
 #include "Kismet/GameplayStatics.h"
 #include <Runtime/Engine/Classes/Components/SphereComponent.h>
 
+#include "TerrainAlgorithms.h"
+
 //#if !UE_BUILD_DEBUG && !UE_BUILD_DEVELOPMENT
 //#define ENABLE_RUNTIME_CHECKS 1
 //#else
@@ -68,17 +70,28 @@ void AWorldGenManager::GenerateHeightMapByClusterEditor() {
 	FTerrainGenCurves Curves;
 	Curves.ContinentalnessCurve = ContinentalnessCurve;
 	Curves.ErosionCurve = ErosionCurve;
+	Curves.PeaksValleysCurve = PeaksValleysCurve;
 	WorldTerrainGen::Initialize(Curves, Seed);
 
-	
+	float BaseFrequencyContinentalness = 1 / 4096.f;
+	float BaseFrequencyErosion = 1 / 4096.f;
+	float BaseFrequencyPeaksValleys = 1 / 8192.f;
+
+	float OctavesContinentalness = 7;
+	float OctavesErosion = 7;
+	float OctavesPeaksValleys = 5;
+
 
 	MArray<float> HeightMapContinentalness = WorldTerrainGen::GenerateClusterHeightMap(DebugStartCluster, DebugEndCluster, (uint8)MapType::Continentalness, BaseFrequencyContinentalness, ContinentalnessCurve, OctavesContinentalness);
 	MArray<float> HeightMapErosion = WorldTerrainGen::GenerateClusterHeightMap(DebugStartCluster, DebugEndCluster, (uint8)MapType::Erosion, BaseFrequencyErosion, ErosionCurve, OctavesErosion);
-	MArray<float> HeightMapPeeksAndValleys = WorldTerrainGen::GenerateClusterHeightMap(DebugStartCluster, DebugEndCluster, (uint8)MapType::Erosion, BaseFrequencyErosion, ErosionCurve, OctavesErosion);
+	MArray<float> HeightMapPeaksAndValleys = WorldTerrainGen::GenerateClusterHeightMap(DebugStartCluster, DebugEndCluster, (uint8)MapType::PeaksValleys, BaseFrequencyPeaksValleys, PeaksValleysCurve, OctavesPeaksValleys,0.3f,2.5f);
 
+	MArray<float> FloodAreas = TerrainAlgorithms::CalculateWaterAreas(HeightMapPeaksAndValleys);
 
 	Continentalness = WorldTerrainGen::GenerateClusterTexture(HeightMapContinentalness, ContinentalnessCurve);
 	Erosion = WorldTerrainGen::GenerateClusterTexture(HeightMapErosion, ErosionCurve);
+	PeaksAndValleys = WorldTerrainGen::GenerateClusterTexture(HeightMapPeaksAndValleys, PeaksValleysCurve);
+	Flood = WorldTerrainGen::GenerateClusterTexture(FloodAreas, FloodCurve);
 
 	WorldHeight = WorldTerrainGen::MixMainTextures(HeightMapContinentalness, HeightMapErosion, ContinentalnessCurve);
 

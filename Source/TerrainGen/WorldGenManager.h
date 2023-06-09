@@ -54,10 +54,7 @@ public:
 #pragma region "Perlin noise Editor Debug"
 private:
 
-	float BaseFrequencyContinentalness = 1 / 4096.f;
-	float BaseFrequencyErosion = 1 / 4096.f;
-	float OctavesContinentalness = 7;
-	float OctavesErosion = 7;
+
 
 	// Editor Function
 	UFUNCTION(BlueprintCallable, Category = "Perlin Debug")
@@ -89,6 +86,15 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
 		UTexture2D* PeaksAndValleys;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UCurveFloat* PeaksValleysCurve;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UTexture2D* Flood;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
+		UCurveFloat* FloodCurve;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perlin Debug", meta = (AllowPrivateAccess = "true"))
 		UTexture2D* Temperature;

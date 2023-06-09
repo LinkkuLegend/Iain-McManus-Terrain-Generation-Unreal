@@ -10,6 +10,7 @@ struct TERRAINGEN_API FTerrainGenCurves {
 public:
 	UCurveFloat* ContinentalnessCurve;
 	UCurveFloat* ErosionCurve;
+	UCurveFloat* PeaksValleysCurve;
 };
 
 /**
